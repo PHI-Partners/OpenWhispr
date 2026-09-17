@@ -91,7 +91,9 @@ Combine mic + loopback into one mono stream before transcribing (simplest), or k
 
 This is the same pattern as any other local-server model runtime — no special Node bindings required, just `child_process.spawn` + `http` calls, which keeps your dependency surface small.
 
-**Recommended for v1:** copy this exact pattern — it's already simple and it's proven. Bundle the prebuilt `whisper-server` Vulkan binary (or CPU-only to start, add Vulkan once the basic loop works) + a small model (`ggml-base.en.bin`) with your app, spawn it once, POST WAV chunks to `/inference`.
+**Recommended for v1:** copy this exact pattern — it's already simple and it's proven. Bundle the prebuilt `whisper-server` Vulkan binary (or CPU-only to start, add Vulkan once the basic loop works) with your app, spawn it once, POST WAV chunks to `/inference`.
+
+**The model is not bundled.** An earlier draft of this plan shipped one pinned `ggml-base.en.bin`; that was reversed in favour of OpenWhispr's own approach, because a single baked-in model forces the same accuracy-versus-disk trade on every user and can only be changed by reinstalling. Instead the app carries a ten-entry catalog (`tiny`, `base`, `small`, `medium` and their `.en` variants, plus `large-v3` and `large-v3-turbo`; `base.en` recommended) and downloads the chosen weights post-install into user data, so the installer contains no weights at all. The model path is therefore a **parameter** to the server's `start()` rather than a constant — changing it stops and respawns the process, and a fresh install sits in a `no-model` state that records audio but does not transcribe until the user picks a model. Mechanics — pinned Hugging Face revision, SHA-256 per entry, resumable single-flight download with a disk preflight — are specified in `BACKLOG.md` (the "Speech models" reference bullet and Epic 5).
 
 ## 4. Data model
 
@@ -130,7 +132,7 @@ Adopt OpenWhispr's additive-`ALTER TABLE`-in-try/catch pattern from day one — 
 
 ## 5. Packaging
 
-`electron-builder` (see the repo's `electron-builder.json`), same as noted in `TECH_STACK.md`. Key thing to get right early: native binaries (`whisper-server.exe`, your audio helper if you build one) need to be marked as **extra resources** (not bundled into the asar) so they can be spawned as real subprocesses — asar-packed files aren't directly executable. OpenWhispr keeps them under `resources/bin/`.
+`electron-builder` (see the repo's `electron-builder.json`), same as noted in `TECH_STACK.md`. Key thing to get right early: native binaries (`whisper-server.exe`, your audio helper if you build one) need to be marked as **extra resources** (not bundled into the asar) so they can be spawned as real subprocesses — asar-packed files aren't directly executable. OpenWhispr keeps them under `resources/bin/`. Models are the exception: they are **not** extra resources — they're downloaded into user data at runtime (§3), so nothing under `resources/models/` is ever mapped into the build, and the pre-package check fails if that folder is non-empty.
 
 ## 6. Build order (do not build these in parallel)
 
@@ -138,5 +140,5 @@ Adopt OpenWhispr's additive-`ALTER TABLE`-in-try/catch pattern from day one — 
 2. **Wire up whisper-server.** Spawn it, POST that saved WAV to `/inference`, print the returned text to console. Verify accuracy with your own voice before touching system audio.
 3. **Add system audio via `desktopCapturer`.** Mix with mic, confirm the transcript picks up both sides of a real call.
 4. **Persist to SQLite + build the UI shell** (React + Tailwind + shadcn, per `TECH_STACK.md`/`UI_COMPONENTS.md`) — list of past meetings, view a transcript.
-5. **Package with electron-builder**, confirm the `.exe` runs on a clean Windows machine with the bundled `whisper-server` binary and model.
+5. **Package with electron-builder**, confirm the `.exe` runs on a clean Windows machine with the bundled `whisper-server` binary, and that a model downloaded on first run transcribes correctly.
 6. *(Later, optional)* Swap CPU whisper-server for the Vulkan build once step 5 works, to use the AMD GPU. Only then consider the native WASAPI loopback helper if `desktopCapturer` proves insufficient.

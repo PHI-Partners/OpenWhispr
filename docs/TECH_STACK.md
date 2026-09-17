@@ -43,7 +43,7 @@ OpenWhispr itself uses a custom-compiled native WASAPI helper (`resources/window
 |---|---|
 | **whisper.cpp** built with the **Vulkan** backend (`GGML_VULKAN=1`) | AMD GPUs have no CUDA support and ROCm on Windows is immature/limited — Vulkan is the practical cross-vendor GPU backend whisper.cpp supports on Windows |
 | CPU fallback (AVX2 build) | Auto-fallback when no compatible GPU/driver is found |
-| Model | OpenAI whisper |
+| A ten-entry catalog of OpenAI Whisper ggml models, downloaded on demand (`tiny`, `base`, `small`, `medium` and their `.en` variants, `large-v3`, `large-v3-turbo`; `base.en` recommended) | Shipping no weights keeps the installer small and lets the user trade accuracy against disk and speed without reinstalling; `.en` models are more accurate per byte for English meetings, multilingual ones need `--language auto` |
 
 ### 3. Storage
 
