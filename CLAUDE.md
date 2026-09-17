@@ -43,7 +43,7 @@ A number in parentheses names the `docs/BACKLOG.md` epic or task that introduces
 | Icons and lists | `lucide-react`; `@tanstack/react-virtual` | Free icon set; virtualised meeting and transcript lists |
 | Audio capture | `getUserMedia` + `MediaRecorder` (Epic 4); Electron loopback through `desktopCapturer` (Epic 6); native WASAPI process-loopback helper in C (Epic 12) | Both sides of a call without native Node addons; the helper also excludes the app's own audio |
 | Audio decoding | `ffmpeg-static` (Epic 4) | One long-running ffmpeg turns webm/opus chunks into 16 kHz mono PCM for the WAV file and whisper |
-| Transcription | whisper.cpp `whisper-server` on 127.0.0.1 with `ggml-base.en` (Epic 5); Vulkan build with CPU fallback (Epic 11) | Offline and private; Vulkan is the practical AMD GPU backend on Windows |
+| Transcription | whisper.cpp `whisper-server` on 127.0.0.1 with a user-selected ggml model downloaded on demand from a ten-entry catalog, `base.en` recommended (Epic 5); Vulkan build with CPU fallback (Epic 11) | Offline and private; no weights in the installer, so accuracy and disk use are the user's choice; Vulkan is the practical AMD GPU backend on Windows |
 | Storage | `better-sqlite3` 13 (Epic 7) | Embedded synchronous SQLite; its N-API prebuild loads in Node and Electron without a native rebuild |
 | Packaging and updates | electron-builder 26 with NSIS and code signing; `electron-updater` on GitHub Releases (Epic 10) | Signed installer with native binaries outside asar; self-update |
 | Code quality | ESLint 10 flat config, typescript-eslint 8 (`recommendedTypeChecked`), `eslint-plugin-react-hooks` 7, Prettier 3 | Type-aware rules catch floating and misused promises; Prettier owns formatting and `eslint-config-prettier` switches off conflicting rules |
@@ -66,9 +66,9 @@ src/
     src/               renderer source behind the @/ alias; components/ui/ holds the shadcn primitives (8.1.2)
 resources/             files shipped next to the app outside asar, plus the WASAPI helper's C source (Epics 5, 9, 11, 12)
   bin/                 whisper-server builds in cpu/ and vulkan/, audio helper exe (gitignored, provisioned by scripts)
-  models/              ggml whisper models (gitignored)
   icons/               app and tray icons
-scripts/               Node .mjs provisioning and build scripts: test fixtures, whisper binaries and model, Vulkan and helper builds
+scripts/               Node .mjs provisioning and build scripts: test fixtures, whisper binaries, Vulkan and helper builds
+.cache/                developer-only ggml model cache filled by setup:whisper (gitignored, never packaged)
 tests/                 fixtures/, fakes/, helpers/, mocks/ and e2e/ (Epic 2)
 out/                   electron-vite build output (gitignored)
 dist/                  electron-builder output (gitignored, Epic 10)
