@@ -11,7 +11,11 @@ export default defineConfig({
     resolve: { alias: sharedAlias },
   },
   preload: {
-    build: { rollupOptions: { input: { index: resolve(__dirname, 'src/preload/index.ts') } } },
+    build: {
+      rollupOptions: { input: { index: resolve(__dirname, 'src/preload/index.ts') } },
+      // A sandboxed preload can only require('electron'): bundle everything else into the file.
+      externalizeDeps: false,
+    },
     resolve: { alias: sharedAlias },
   },
   renderer: {

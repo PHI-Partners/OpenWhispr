@@ -1,9 +1,18 @@
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
+import { registerIpcHandlers } from './ipc/ipcHandlers';
 
 async function createMainWindow(): Promise<void> {
   const mainWindow = new BrowserWindow({
-    webPreferences: { preload: join(__dirname, '../preload/index.js') },
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      // The main window hosts audio capture, which must not be throttled while hidden.
+      backgroundThrottling: false,
+      experimentalFeatures: false,
+    },
   });
 
   const rendererUrl = process.env.ELECTRON_RENDERER_URL;
@@ -16,5 +25,8 @@ async function createMainWindow(): Promise<void> {
 
 app
   .whenReady()
-  .then(createMainWindow)
-  .catch((error: unknown) => console.error('Failed to open the main window', error));
+  .then(async () => {
+    registerIpcHandlers({});
+    await createMainWindow();
+  })
+  .catch((error: unknown) => console.error('Failed to start the app', error));
