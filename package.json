@@ -19,7 +19,8 @@
     "test:renderer": "vitest run --project renderer",
     "test:watch": "vitest",
     "test:e2e": "electron-vite build && playwright test",
-    "test:fixtures": "node scripts/fetch-test-fixtures.mjs"
+    "test:fixtures": "node scripts/fetch-test-fixtures.mjs",
+    "dev:browser": "vite --config vite.browser-preview.config.ts"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",

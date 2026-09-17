@@ -17,8 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const FIXTURES_DIR = join(ROOT, 'tests', 'fixtures');
 
-const JFK_URL =
-  'https://github.com/ggerganov/whisper.cpp/raw/v1.7.4/samples/jfk.wav';
+const JFK_URL = 'https://github.com/ggerganov/whisper.cpp/raw/v1.7.4/samples/jfk.wav';
 // Pinned after first successful download — verified against the v1.7.4 tag.
 const JFK_SHA256 = '59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e';
 
@@ -56,10 +55,7 @@ function writeWav(filePath, pcm, sampleRate = SAMPLE_RATE, channels = 1) {
   header.write('data', 36);
   header.writeUInt32LE(dataSize, 40);
 
-  writeFileSync(
-    filePath,
-    Buffer.concat([header, Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength)]),
-  );
+  writeFileSync(filePath, Buffer.concat([header, Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength)]));
 }
 
 async function main() {

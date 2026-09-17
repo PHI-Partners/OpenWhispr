@@ -174,9 +174,7 @@ export interface InstalledMediaDevices {
 }
 
 export function installFakeMediaDevices(): InstalledMediaDevices {
-  const getUserMedia = vi.fn(() =>
-    Promise.resolve(new FakeMediaStream([new FakeMediaStreamTrack('audio')])),
-  );
+  const getUserMedia = vi.fn(() => Promise.resolve(new FakeMediaStream([new FakeMediaStreamTrack('audio')])));
   const getDisplayMedia = vi.fn(() =>
     Promise.resolve(new FakeMediaStream([new FakeMediaStreamTrack('video')])),
   );

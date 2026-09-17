@@ -44,22 +44,15 @@ export const test = base.extend<Fixtures>({
     if (failed) {
       const page = app.windows()[0];
       if (page) {
-        await page
-          .screenshot({ path: testInfo.outputPath('failure.png') })
-          .catch(() => {});
+        await page.screenshot({ path: testInfo.outputPath('failure.png') }).catch(() => {});
       }
-      await context.tracing
-        .stop({ path: testInfo.outputPath('trace.zip') })
-        .catch(() => {});
+      await context.tracing.stop({ path: testInfo.outputPath('trace.zip') }).catch(() => {});
     } else {
       await context.tracing.stop().catch(() => {});
     }
 
     const proc = app.process();
-    await Promise.race([
-      app.close().catch(() => {}),
-      new Promise<void>((r) => setTimeout(r, CLOSE_TIMEOUT)),
-    ]);
+    await Promise.race([app.close().catch(() => {}), new Promise<void>((r) => setTimeout(r, CLOSE_TIMEOUT))]);
     if (proc.exitCode === null && !proc.killed) {
       proc.kill();
     }

@@ -147,14 +147,7 @@ describe('fake-whisper-server', () => {
 
   it('prints startup log lines including the model path', async () => {
     const port = await findFreePort();
-    proc = startServer([
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(port),
-      '--model',
-      '/path/to/model.bin',
-    ]);
+    proc = startServer(['--host', '127.0.0.1', '--port', String(port), '--model', '/path/to/model.bin']);
     const lines = collectStderr(proc);
     await waitForListening(proc);
 
@@ -309,15 +302,7 @@ describe('fake-whisper-server', () => {
 
   it('--no-gpu flag logs CPU backend', async () => {
     const port = await findFreePort();
-    proc = startServer([
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(port),
-      '--model',
-      'test.bin',
-      '--no-gpu',
-    ]);
+    proc = startServer(['--host', '127.0.0.1', '--port', String(port), '--model', 'test.bin', '--no-gpu']);
     const lines = collectStderr(proc);
     await waitForListening(proc);
 

@@ -67,9 +67,7 @@ describe('Electron mock', () => {
       win.webContents.send('transcript-update', { text: 'hello' });
 
       expect(win.webContents.send).toHaveBeenCalledWith('transcript-update', { text: 'hello' });
-      expect(sentMessages).toEqual([
-        { channel: 'transcript-update', args: [{ text: 'hello' }] },
-      ]);
+      expect(sentMessages).toEqual([{ channel: 'transcript-update', args: [{ text: 'hello' }] }]);
     });
 
     it('provides loadURL and loadFile', async () => {

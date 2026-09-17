@@ -31,12 +31,7 @@ export function rms(pcm: Int16Array): number {
   return Math.sqrt(sumSquares / pcm.length);
 }
 
-export function writeWavFile(
-  filePath: string,
-  pcm: Int16Array,
-  sampleRate = 16000,
-  channels = 1,
-): void {
+export function writeWavFile(filePath: string, pcm: Int16Array, sampleRate = 16000, channels = 1): void {
   const bitsPerSample = 16;
   const dataSize = pcm.length * 2;
   const byteRate = sampleRate * channels * (bitsPerSample / 8);

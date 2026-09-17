@@ -76,8 +76,38 @@ dist/                  electron-builder output (gitignored, Epic 10)
 
 Root configuration:
 - `electron.vite.config.ts` — main, preload and renderer entries; `@shared` alias in all three, `@` in the renderer.
+- `vite.browser-preview.config.ts` — standalone Vite config for the renderer in browser-preview mode (see below).
 - `tsconfig.json` — references `tsconfig.node.json` (main, preload, shared, scripts, root config files) and `tsconfig.web.json` (renderer, shared); both extend `tsconfig.base.json`. Linting is type-aware, so every file ESLint checks must be included by one of them.
 - `eslint.config.mjs`, `.prettierrc.json`, `.prettierignore` — lint and format rules; both tools also skip everything in `.gitignore`.
+
+## Browser Preview (DEV-only)
+
+Run the renderer without Electron for visual inspection and Playwright-driven screenshots:
+
+```powershell
+npm run dev:browser        # Vite dev server at http://localhost:5173
+```
+
+When `window.api` is absent (no Electron preload), the renderer installs an in-memory mock API (`src/renderer/src/dev/browserPreviewApi.ts`) behind an `import.meta.env.DEV` guard. The mock is tree-shaken from production builds.
+
+**What the mock provides:**
+- 5 seeded meetings with varied durations, transcripts and dates
+- A scripted recording simulation: `startMeetingRecording` → delayed `TranscriptUpdate` events → `stopMeetingRecording` adds the new meeting to the list
+
+**Playwright browser-preview tests:**
+
+```powershell
+npx playwright test --project browser-preview-light   # light mode screenshots
+npx playwright test --project browser-preview-dark     # dark mode screenshots
+npx playwright test --project browser-preview-light --project browser-preview-dark  # both
+```
+
+These are separate from the Electron E2E tests (`--project electron`). The Vite dev server starts automatically via the `webServer` in `playwright.config.ts`.
+
+**Interactive inspection loop (Playwright MCP tools):**
+1. Run `npm run dev:browser`
+2. Use the Playwright MCP tools to navigate to `http://localhost:5173`, inspect and screenshot
+3. Screenshots can be taken in light or dark mode by setting `colorScheme` in the Playwright browser context
 
 ### Frontend
 <!-- TODO: describe UI framework, state management, routing, and key design decisions -->

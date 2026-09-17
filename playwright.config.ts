@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -8,4 +8,36 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: [['list'], ['html', { open: 'never' }]],
   outputDir: 'test-results',
+
+  projects: [
+    {
+      name: 'electron',
+      testMatch: /^(?!.*browser-preview).*\.spec\.ts$/,
+    },
+    {
+      name: 'browser-preview-light',
+      testMatch: /browser-preview.*\.spec\.ts$/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://localhost:5173',
+        colorScheme: 'light',
+      },
+    },
+    {
+      name: 'browser-preview-dark',
+      testMatch: /browser-preview.*\.spec\.ts$/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://localhost:5173',
+        colorScheme: 'dark',
+      },
+    },
+  ],
+
+  webServer: {
+    command: 'npm run dev:browser',
+    url: 'http://localhost:5173',
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  },
 });

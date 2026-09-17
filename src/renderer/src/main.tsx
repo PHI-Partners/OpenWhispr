@@ -3,13 +3,22 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error('Renderer root element #root is missing from index.html');
+async function bootstrap(): Promise<void> {
+  if (import.meta.env.DEV && !window.api) {
+    const { installBrowserPreviewApi } = await import('./dev/browserPreviewApi');
+    installBrowserPreviewApi();
+  }
+
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    throw new Error('Renderer root element #root is missing from index.html');
+  }
+
+  createRoot(rootElement).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
 }
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+bootstrap().catch((error: unknown) => console.error('Renderer bootstrap failed', error));
