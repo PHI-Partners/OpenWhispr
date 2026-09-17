@@ -99,6 +99,7 @@ Root configuration:
 
 * Always use Context7 when you need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
 * Always use playwright cli & skills to test the application
+* Use the TypeScript LSP for symbol/type exploration (go-to-definition, find-references, hover) instead of reading entire files through Explore agents. Reserve full-file reads for broad discovery tasks.
 
 ## Code Quality
 * Prefer correct, complete implementations over minimal ones.
