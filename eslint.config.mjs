@@ -23,6 +23,22 @@ export default defineConfig(
     files: ['src/renderer/**/*.{ts,tsx}'],
     extends: [reactHooks.configs.flat.recommended],
   },
+  {
+    files: ['scripts/**/*.mjs', 'tests/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        Buffer: 'readonly',
+        console: 'readonly',
+        process: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
   // Last, so it switches off every rule that would fight Prettier's formatting.
   eslintConfigPrettier,
 );

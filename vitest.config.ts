@@ -12,6 +12,7 @@ export default defineConfig({
             'src/main/**/*.{test,spec}.{ts,js}',
             'src/shared/**/*.{test,spec}.{ts,js}',
             'scripts/**/*.{test,spec}.{ts,mjs,js}',
+            'tests/**/*.{test,spec}.{ts,js}',
           ],
         },
         resolve: {
