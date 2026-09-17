@@ -10,5 +10,12 @@
       "@shared/*": ["./src/shared/*"]
     }
   },
-  "include": ["electron.vite.config.ts", "src/main/**/*", "src/preload/**/*", "src/shared/**/*", "scripts/**/*"]
+  "include": [
+    "eslint.config.mjs",
+    "electron.vite.config.ts",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*",
+    "scripts/**/*"
+  ]
 }

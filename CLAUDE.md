@@ -4,18 +4,80 @@
 <!-- TODO: briefly describe what this app does, its primary users, and the core technical shape (e.g. language/framework for backend and frontend, monorepo or not). -->
 
 ## Prerequisites
-<!-- TODO: list runtime dependencies, required tools, and minimum versions (e.g. Node 20+, Python 3.11+, Docker) -->
+- **Windows 10/11 x64** — the only target platform (WASAPI loopback capture, Windows whisper.cpp binaries, NSIS installer).
+- **Node.js `^22.13.0 || >=24`** with its bundled npm — the `engines` range in `package.json`; ESLint 10 sets the floor.
+- **Git**.
+- **Network access during `npm ci`** — the `install-electron` postinstall downloads the Electron binary and `ffmpeg-static` downloads ffmpeg; `better-sqlite3` ships N-API prebuilds, so no C++ toolchain is needed.
 
 ## Quick Start: Install and Build
-<!-- TODO: step-by-step commands to clone, install dependencies, and run locally -->
+```powershell
+git clone https://github.com/PHI-Partners/OpenWhispr.git
+cd OpenWhispr
+npm ci             # exact install from package-lock.json
+npm run dev        # launch the app with renderer HMR
+npm run build      # bundle into out/main, out/preload, out/renderer
+npm run preview    # launch the production bundle
+```
+
+Code quality:
+
+```powershell
+npm run typecheck  # tsc -b over tsconfig.node.json and tsconfig.web.json
+npm run lint       # ESLint with type information; any warning fails
+npm run format     # Prettier rewrites code, JSON, CSS and HTML (Markdown is excluded)
+```
 
 ## Tech Stack
-<!-- TODO: list languages, frameworks, libraries, and infrastructure choices with a one-line rationale for each -->
+A number in parentheses names the `docs/BACKLOG.md` epic or task that introduces that piece; rationale in depth lives in `docs/TECH_STACK.md`.
+
+| Area | Choice | Why |
+|---|---|---|
+| Language | TypeScript 6.0, strict; Node `.mjs` for scripts | One type system across main, preload, renderer and the IPC contract; held below 6.1 because typescript-eslint 8.70 requires it |
+| Desktop shell | Electron 44 | Tray, global hotkey and always-on-top overlay; sandboxed renderers reach main only through the `contextBridge` API |
+| Build | electron-vite 5 on Vite 7 with `@vitejs/plugin-react` 5 | One config builds main, preload and renderer with HMR; electron-vite 5 supports Vite ≤ 7, and plugin-react 6 needs Vite 8 |
+| Package management | npm with exact versions (`.npmrc` `save-exact=true`) and a committed lockfile | Reproducible installs; upgrades are deliberate and start by checking peer ranges |
+| UI | React 19 | Mainstream component model and ecosystem |
+| Styling | Tailwind CSS v4 through `@tailwindcss/vite` | CSS `@theme` tokens without a config file (`docs/THEME.md`); `tailwindcss` and `@tailwindcss/vite` must share the exact version |
+| Components | shadcn/ui source on Radix primitives (8.1.2); `class-variance-authority` + `clsx` + `tailwind-merge` | Accessible primitives whose code the project owns; variant-based styling |
+| State | Zustand | Global stores without Redux boilerplate |
+| Icons and lists | `lucide-react`; `@tanstack/react-virtual` | Free icon set; virtualised meeting and transcript lists |
+| Audio capture | `getUserMedia` + `MediaRecorder` (Epic 4); Electron loopback through `desktopCapturer` (Epic 6); native WASAPI process-loopback helper in C (Epic 12) | Both sides of a call without native Node addons; the helper also excludes the app's own audio |
+| Audio decoding | `ffmpeg-static` (Epic 4) | One long-running ffmpeg turns webm/opus chunks into 16 kHz mono PCM for the WAV file and whisper |
+| Transcription | whisper.cpp `whisper-server` on 127.0.0.1 with `ggml-base.en` (Epic 5); Vulkan build with CPU fallback (Epic 11) | Offline and private; Vulkan is the practical AMD GPU backend on Windows |
+| Storage | `better-sqlite3` 13 (Epic 7) | Embedded synchronous SQLite; its N-API prebuild loads in Node and Electron without a native rebuild |
+| Packaging and updates | electron-builder 26 with NSIS and code signing; `electron-updater` on GitHub Releases (Epic 10) | Signed installer with native binaries outside asar; self-update |
+| Code quality | ESLint 10 flat config, typescript-eslint 8 (`recommendedTypeChecked`), `eslint-plugin-react-hooks` 7, Prettier 3 | Type-aware rules catch floating and misused promises; Prettier owns formatting and `eslint-config-prettier` switches off conflicting rules |
+| Testing | Vitest 5 (`main`: node, `renderer`: jsdom + React Testing Library) and Playwright driving Electron (Epic 2) | Unit and integration tests plus end-to-end checks of the real app |
 
 ## Architecture
 
 ### Folder Structure
-<!-- TODO: annotated tree of the repo layout, one line per directory explaining its role -->
+```text
+.claude/skills/        Claude Code skills for this repo (playwright-cli)
+docs/                  specs (ARCHITECTURE, TECH_STACK, UI_COMPONENTS, THEME) and BACKLOG.md, the numbered task list
+  superpowers/plans/   implementation plan per backlog task
+src/
+  main/                Electron main process: app lifecycle, windows, services; entry index.ts
+    ipc/               ipcHandlers.ts, the single registration point for every ipcMain.handle
+    audio/             ffmpeg decoder, WAV writer, recording session, WASAPI helper manager (Epics 4, 12)
+  preload/             window.api through contextBridge; bundled, since a sandboxed preload cannot load local modules or npm packages
+  shared/              code imported by both sides; ipc.ts holds the channel constants, payload types and the Api interface
+  renderer/            React UI with one HTML entry per window (index.html; overlay.html in 9.1.4)
+    src/               renderer source behind the @/ alias; components/ui/ holds the shadcn primitives (8.1.2)
+resources/             files shipped next to the app outside asar, plus the WASAPI helper's C source (Epics 5, 9, 11, 12)
+  bin/                 whisper-server builds in cpu/ and vulkan/, audio helper exe (gitignored, provisioned by scripts)
+  models/              ggml whisper models (gitignored)
+  icons/               app and tray icons
+scripts/               Node .mjs provisioning and build scripts: test fixtures, whisper binaries and model, Vulkan and helper builds
+tests/                 fixtures/, fakes/, helpers/, mocks/ and e2e/ (Epic 2)
+out/                   electron-vite build output (gitignored)
+dist/                  electron-builder output (gitignored, Epic 10)
+```
+
+Root configuration:
+- `electron.vite.config.ts` — main, preload and renderer entries; `@shared` alias in all three, `@` in the renderer.
+- `tsconfig.json` — references `tsconfig.node.json` (main, preload, shared, scripts, root config files) and `tsconfig.web.json` (renderer, shared); both extend `tsconfig.base.json`. Linting is type-aware, so every file ESLint checks must be included by one of them.
+- `eslint.config.mjs`, `.prettierrc.json`, `.prettierignore` — lint and format rules; both tools also skip everything in `.gitignore`.
 
 ### Frontend
 <!-- TODO: describe UI framework, state management, routing, and key design decisions -->

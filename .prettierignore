@@ -1,0 +1,2 @@
+# Hand-written docs quote external source verbatim; Prettier would rewrite their lists and code blocks.
+*.md
