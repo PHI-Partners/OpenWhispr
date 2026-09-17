@@ -18,8 +18,10 @@
     "test:main": "vitest run --project main",
     "test:renderer": "vitest run --project renderer",
     "test:watch": "vitest",
-    "test:e2e": "electron-vite build && playwright test",
+    "test:e2e": "electron-vite build && playwright test --project electron --project browser-preview-light --project browser-preview-dark",
+    "test:smoke:real": "electron-vite build && playwright test --project smoke-real",
     "test:fixtures": "node scripts/fetch-test-fixtures.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run test:e2e",
     "dev:browser": "vite --config vite.browser-preview.config.ts"
   },
   "dependencies": {

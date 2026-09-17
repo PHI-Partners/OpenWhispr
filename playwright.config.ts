@@ -12,7 +12,7 @@ export default defineConfig({
   projects: [
     {
       name: 'electron',
-      testMatch: /^(?!.*browser-preview).*\.spec\.ts$/,
+      testMatch: /^(?!.*browser-preview)(?!.*smoke-real).*\.spec\.ts$/,
     },
     {
       name: 'browser-preview-light',
@@ -31,6 +31,10 @@ export default defineConfig({
         baseURL: 'http://localhost:5173',
         colorScheme: 'dark',
       },
+    },
+    {
+      name: 'smoke-real',
+      testMatch: /smoke-real[/\\].*\.spec\.ts$/,
     },
   ],
 
