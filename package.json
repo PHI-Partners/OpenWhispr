@@ -1,0 +1,40 @@
+{
+  "name": "openwhispr",
+  "version": "0.1.0",
+  "private": true,
+  "main": "out/main/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "postinstall": "install-electron",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3",
+    "electron-updater": "6.8.9",
+    "ffmpeg-static": "5.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-virtual": "3.14.13",
+    "@types/node": "24.13.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "electron": "44.4.1",
+    "electron-vite": "5.0.0",
+    "lucide-react": "1.47.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "3.7.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "7.3.6",
+    "zustand": "5.0.15"
+  }
+}
