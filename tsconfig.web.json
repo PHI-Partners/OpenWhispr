@@ -10,5 +10,11 @@
       "@/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src/**/*", "src/shared/**/*"]
+  "include": [
+    "src/renderer/src/**/*",
+    "src/shared/**/*",
+    "tests/helpers/renderWithApp.ts",
+    "tests/setup/renderer.ts",
+    "tests/**/*.tsx"
+  ]
 }

@@ -19,5 +19,6 @@
     "src/shared/**/*",
     "scripts/**/*",
     "tests/**/*"
-  ]
+  ],
+  "exclude": ["tests/**/*.tsx", "tests/helpers/renderWithApp.ts", "tests/setup/renderer.ts"]
 }
