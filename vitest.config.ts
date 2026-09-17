@@ -14,6 +14,7 @@ export default defineConfig({
             'scripts/**/*.{test,spec}.{ts,mjs,js}',
             'tests/**/*.{test,spec}.{ts,js}',
           ],
+          exclude: ['tests/e2e/**'],
         },
         resolve: {
           alias: {
