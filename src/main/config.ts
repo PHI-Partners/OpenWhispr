@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import ffmpegPathRaw from 'ffmpeg-static';
 import { join } from 'node:path';
 import { accessSync, constants as fsConstants, mkdirSync } from 'node:fs';
 
@@ -137,6 +138,15 @@ function resolveModelsDir(userData: string): string {
     `No usable models directory found. whisper.cpp cannot open model files from paths ` +
       `containing spaces or non-ASCII characters. Candidates tried: ${candidates.join(', ')}`,
   );
+}
+
+export function resolveFfmpegPath(): string {
+  if (!ffmpegPathRaw) {
+    throw new ConfigError('FFMPEG_NOT_FOUND', 'ffmpeg-static binary not available for this platform');
+  }
+  return app.isPackaged
+    ? ffmpegPathRaw.replace(/app\.asar(?![\\/.]unpacked)/, 'app.asar.unpacked')
+    : ffmpegPathRaw;
 }
 
 export function resolvePaths(): AppPaths {

@@ -21,6 +21,7 @@ import {
   TMP_REAP_AGE_MS,
   readOverrides,
   resolvePaths,
+  resolveFfmpegPath,
   ConfigError,
 } from './config';
 
@@ -313,5 +314,32 @@ describe('resolvePaths', () => {
         expect((e as ConfigError).code).toBe('MODELS_DIR_UNUSABLE');
       }
     });
+  });
+});
+
+// ── resolveFfmpegPath ──
+
+describe('resolveFfmpegPath', () => {
+  it('returns the ffmpeg-static path in dev mode', () => {
+    (app as unknown as { isPackaged: boolean }).isPackaged = false;
+    const result = resolveFfmpegPath();
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('replaces app.asar with app.asar.unpacked when packaged', () => {
+    (app as unknown as { isPackaged: boolean }).isPackaged = true;
+    const result = resolveFfmpegPath();
+    expect(result).not.toContain('app.asar\\node_modules');
+    expect(result).not.toContain('app.asar/node_modules');
+    if (result.includes('app.asar')) {
+      expect(result).toContain('app.asar.unpacked');
+    }
+  });
+
+  it('does not double-replace an already-unpacked path', () => {
+    (app as unknown as { isPackaged: boolean }).isPackaged = true;
+    const result = resolveFfmpegPath();
+    expect(result).not.toContain('app.asar.unpacked.unpacked');
   });
 });
