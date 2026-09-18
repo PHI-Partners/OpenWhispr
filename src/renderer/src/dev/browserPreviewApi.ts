@@ -1,4 +1,10 @@
-import type { Api, Meeting, StartMeetingRecordingResult, TranscriptUpdate } from '@shared/ipc';
+import type {
+  Api,
+  Meeting,
+  RecordingStatePayload,
+  StartMeetingRecordingResult,
+  TranscriptUpdate,
+} from '@shared/ipc';
 import { RECORDING_SCRIPT, SEED_MEETINGS, toSummaries } from './seedData';
 
 const SCRIPT_INTERVAL_MS = 2500;
@@ -13,11 +19,16 @@ interface RecordingState {
 export function createBrowserPreviewApi(): Api {
   const meetings: Meeting[] = SEED_MEETINGS.map((m) => ({ ...m }));
   const transcriptListeners = new Set<(payload: TranscriptUpdate) => void>();
+  const recordingStateListeners = new Set<(payload: RecordingStatePayload) => void>();
   let recording: RecordingState | null = null;
   let nextId = SEED_MEETINGS.length + 1;
 
   function emit(payload: TranscriptUpdate): void {
     for (const listener of transcriptListeners) listener(payload);
+  }
+
+  function emitState(state: RecordingStatePayload): void {
+    for (const listener of recordingStateListeners) listener(state);
   }
 
   const api: Api = {
@@ -47,7 +58,12 @@ export function createBrowserPreviewApi(): Api {
       }
 
       recording = state;
+      emitState({ state: 'recording', sessionId });
       return Promise.resolve({ sessionId, captureSystemAudio: false });
+    },
+
+    sendAudioChunk() {
+      return Promise.resolve();
     },
 
     stopMeetingRecording(): Promise<void> {
@@ -71,7 +87,22 @@ export function createBrowserPreviewApi(): Api {
       });
 
       recording = null;
+      emitState({ state: 'idle', sessionId: null });
       return Promise.resolve();
+    },
+
+    getRecordingState(): Promise<RecordingStatePayload> {
+      return Promise.resolve({
+        state: recording ? 'recording' : 'idle',
+        sessionId: recording?.sessionId ?? null,
+      });
+    },
+
+    onRecordingStateChanged(listener: (payload: RecordingStatePayload) => void): () => void {
+      recordingStateListeners.add(listener);
+      return () => {
+        recordingStateListeners.delete(listener);
+      };
     },
 
     onTranscriptUpdate(listener: (payload: TranscriptUpdate) => void): () => void {

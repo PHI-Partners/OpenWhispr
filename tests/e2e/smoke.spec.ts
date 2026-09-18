@@ -23,9 +23,12 @@ test.describe('smoke', () => {
 
     expect(apiShape).toEqual([
       'getMeeting',
+      'getRecordingState',
       'listMeetings',
       'logRendererError',
+      'onRecordingStateChanged',
       'onTranscriptUpdate',
+      'sendAudioChunk',
       'startMeetingRecording',
       'stopMeetingRecording',
     ]);

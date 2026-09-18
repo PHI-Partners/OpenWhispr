@@ -11,6 +11,7 @@ import {
 } from '../../../tests/mocks/electron';
 import { registerIpcHandlers } from './ipcHandlers';
 import type { Logger } from '../logger';
+import type { RecordingController } from '../audio/recordingController';
 import { EventChannel, InvokeChannel, type RendererErrorPayload } from '@shared/ipc';
 
 function createMockLogger() {
@@ -29,15 +30,29 @@ const validPayload: RendererErrorPayload = {
   source: 'error',
 };
 
+function createMockRecordingController() {
+  return {
+    start: vi.fn().mockReturnValue({ sessionId: 'mock-session', captureSystemAudio: false }),
+    audioChunk: vi.fn(),
+    stop: vi.fn().mockResolvedValue(undefined),
+    getState: vi.fn().mockReturnValue({ state: 'idle', sessionId: null }),
+  };
+}
+
 describe('registerIpcHandlers', () => {
   let mockLogger: ReturnType<typeof createMockLogger>;
+  let mockController: ReturnType<typeof createMockRecordingController>;
   const savedEnv = process.env.ELECTRON_RENDERER_URL;
 
   beforeEach(() => {
     resetElectronMock();
     delete process.env.ELECTRON_RENDERER_URL;
     mockLogger = createMockLogger();
-    registerIpcHandlers({ logger: mockLogger as unknown as Logger });
+    mockController = createMockRecordingController();
+    registerIpcHandlers({
+      logger: mockLogger as unknown as Logger,
+      recordingController: mockController as unknown as RecordingController,
+    });
   });
 
   afterEach(() => {
@@ -70,7 +85,10 @@ describe('registerIpcHandlers', () => {
     it('accepts invoke from ELECTRON_RENDERER_URL when set', async () => {
       resetElectronMock();
       process.env.ELECTRON_RENDERER_URL = 'http://localhost:5173';
-      registerIpcHandlers({ logger: mockLogger as unknown as Logger });
+      registerIpcHandlers({
+        logger: mockLogger as unknown as Logger,
+        recordingController: mockController as unknown as RecordingController,
+      });
 
       await expect(
         simulateInvokeFrom('http://localhost:5173/index.html', 'log-renderer-error', validPayload),
@@ -80,7 +98,10 @@ describe('registerIpcHandlers', () => {
     it('rejects invoke from different dev server port', async () => {
       resetElectronMock();
       process.env.ELECTRON_RENDERER_URL = 'http://localhost:5173';
-      registerIpcHandlers({ logger: mockLogger as unknown as Logger });
+      registerIpcHandlers({
+        logger: mockLogger as unknown as Logger,
+        recordingController: mockController as unknown as RecordingController,
+      });
 
       await expect(
         simulateInvokeFrom('http://localhost:9999/index.html', 'log-renderer-error', validPayload),
@@ -173,8 +194,61 @@ describe('registerIpcHandlers', () => {
         );
       });
 
+      it('recording-get-state rejects extra arguments', async () => {
+        await expect(simulateInvoke('recording-get-state', 'extra')).rejects.toThrow(
+          'expected no arguments',
+        );
+      });
+
       it('db-list-meetings rejects extra arguments', async () => {
         await expect(simulateInvoke('db-list-meetings', 'extra')).rejects.toThrow('expected no arguments');
+      });
+    });
+
+    describe('meeting-audio-chunk', () => {
+      it('rejects when seq is not a number', async () => {
+        await expect(
+          simulateInvoke('meeting-audio-chunk', { seq: 'a', data: new Uint8Array([1]) }),
+        ).rejects.toThrow('payload.seq must be a number');
+      });
+
+      it('rejects when seq is negative', async () => {
+        await expect(
+          simulateInvoke('meeting-audio-chunk', { seq: -1, data: new Uint8Array([1]) }),
+        ).rejects.toThrow('payload.seq must be non-negative');
+      });
+
+      it('rejects when seq is a float', async () => {
+        await expect(
+          simulateInvoke('meeting-audio-chunk', { seq: 1.5, data: new Uint8Array([1]) }),
+        ).rejects.toThrow('payload.seq must be an integer');
+      });
+
+      it('rejects when data is not a Uint8Array', async () => {
+        await expect(
+          simulateInvoke('meeting-audio-chunk', { seq: 0, data: 'not-a-buffer' }),
+        ).rejects.toThrow('payload.data must be a Buffer');
+      });
+
+      it('rejects when data is empty', async () => {
+        await expect(
+          simulateInvoke('meeting-audio-chunk', { seq: 0, data: new Uint8Array(0) }),
+        ).rejects.toThrow('payload.data must not be empty');
+      });
+
+      it('rejects when data exceeds maximum size', async () => {
+        await expect(
+          simulateInvoke('meeting-audio-chunk', {
+            seq: 0,
+            data: new Uint8Array(3 * 1024 * 1024),
+          }),
+        ).rejects.toThrow('payload.data exceeds maximum chunk size');
+      });
+
+      it('accepts valid payload and delegates to controller', async () => {
+        await simulateInvoke('meeting-audio-chunk', { seq: 0, data: new Uint8Array([1, 2, 3]) });
+        expect(mockController.audioChunk).toHaveBeenCalledWith(0, expect.any(Buffer));
+        expect(mockController.audioChunk.mock.calls[0][1]).toEqual(Buffer.from([1, 2, 3]));
       });
     });
   });
@@ -194,13 +268,19 @@ describe('registerIpcHandlers', () => {
     });
 
     it('logs handler errors via logger.error', async () => {
+      mockController.start.mockImplementation(() => {
+        throw new Error('handler boom');
+      });
       await simulateInvoke('meeting-recording-start').catch(() => {});
-      expect(mockLogger.error).toHaveBeenCalledWith('ipc', expect.stringContaining('Not implemented'));
+      expect(mockLogger.error).toHaveBeenCalledWith('ipc', expect.stringContaining('handler boom'));
     });
 
     it('wraps handler errors as serializable Error', async () => {
+      mockController.start.mockImplementation(() => {
+        throw new Error('handler boom');
+      });
       const rejection = simulateInvoke('meeting-recording-start');
-      await expect(rejection).rejects.toThrow('Not implemented');
+      await expect(rejection).rejects.toThrow('handler boom');
       await expect(rejection).rejects.toBeInstanceOf(Error);
     });
   });
@@ -238,17 +318,30 @@ describe('registerIpcHandlers', () => {
     });
   });
 
+  // ── Handler delegation ──
+
+  describe('recording handler delegation', () => {
+    it('meeting-recording-start delegates to controller.start()', async () => {
+      const result = await simulateInvoke('meeting-recording-start');
+      expect(mockController.start).toHaveBeenCalledOnce();
+      expect(result).toEqual({ sessionId: 'mock-session', captureSystemAudio: false });
+    });
+
+    it('meeting-recording-stop delegates to controller.stop()', async () => {
+      await simulateInvoke('meeting-recording-stop');
+      expect(mockController.stop).toHaveBeenCalledOnce();
+    });
+
+    it('recording-get-state delegates to controller.getState()', async () => {
+      const result = await simulateInvoke('recording-get-state');
+      expect(mockController.getState).toHaveBeenCalledOnce();
+      expect(result).toEqual({ state: 'idle', sessionId: null });
+    });
+  });
+
   // ── Stub handlers ──
 
   describe('stub handlers', () => {
-    it('meeting-recording-start throws "Not implemented"', async () => {
-      await expect(simulateInvoke('meeting-recording-start')).rejects.toThrow('Not implemented');
-    });
-
-    it('meeting-recording-stop throws "Not implemented"', async () => {
-      await expect(simulateInvoke('meeting-recording-stop')).rejects.toThrow('Not implemented');
-    });
-
     it('db-list-meetings throws "Not implemented"', async () => {
       await expect(simulateInvoke('db-list-meetings')).rejects.toThrow('Not implemented');
     });
@@ -284,8 +377,9 @@ describe('registerIpcHandlers', () => {
 
     it('every EventChannel has a matching on* method in Api', () => {
       const eventChannels = Object.values(EventChannel);
-      expect(eventChannels).toHaveLength(1);
+      expect(eventChannels).toHaveLength(2);
       expect(eventChannels).toContain('transcript-update');
+      expect(eventChannels).toContain('recording-state-changed');
     });
   });
 });

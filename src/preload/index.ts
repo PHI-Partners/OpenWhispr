@@ -22,7 +22,10 @@ function subscribe<C extends EventChannel>(
 
 const api: Api = {
   startMeetingRecording: () => invoke(InvokeChannel.MeetingRecordingStart),
+  sendAudioChunk: (payload) => invoke(InvokeChannel.MeetingAudioChunk, payload),
   stopMeetingRecording: () => invoke(InvokeChannel.MeetingRecordingStop),
+  getRecordingState: () => invoke(InvokeChannel.RecordingGetState),
+  onRecordingStateChanged: (listener) => subscribe(EventChannel.RecordingStateChanged, listener),
   onTranscriptUpdate: (listener) => subscribe(EventChannel.TranscriptUpdate, listener),
   listMeetings: () => invoke(InvokeChannel.DbListMeetings),
   getMeeting: (id) => invoke(InvokeChannel.DbGetMeeting, id),

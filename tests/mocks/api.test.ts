@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { TranscriptUpdate } from '@shared/ipc';
+import type { RecordingStatePayload, TranscriptUpdate } from '@shared/ipc';
 import { createMockApi, type MockApiResult } from './api';
 
 describe('createMockApi', () => {
@@ -21,6 +21,15 @@ describe('createMockApi', () => {
 
     it('listMeetings resolves to an empty array', async () => {
       await expect(mock.api.listMeetings()).resolves.toEqual([]);
+    });
+
+    it('sendAudioChunk resolves to undefined', async () => {
+      await expect(mock.api.sendAudioChunk({ seq: 0, data: Buffer.from([1]) })).resolves.toBeUndefined();
+    });
+
+    it('getRecordingState resolves to idle state', async () => {
+      const state = await mock.api.getRecordingState();
+      expect(state).toEqual({ state: 'idle', sessionId: null });
     });
 
     it('getMeeting resolves to a Meeting object', async () => {
@@ -108,6 +117,27 @@ describe('createMockApi', () => {
 
       expect(a).toEqual([payload]);
       expect(b).toEqual([payload]);
+    });
+  });
+
+  describe('recording state subscription', () => {
+    const statePayload: RecordingStatePayload = { state: 'recording', sessionId: 'sess-1' };
+
+    it('delivers emitted state to registered listeners', () => {
+      const received: RecordingStatePayload[] = [];
+      mock.api.onRecordingStateChanged((p) => received.push(p));
+
+      mock.emitRecordingStateChanged(statePayload);
+      expect(received).toEqual([statePayload]);
+    });
+
+    it('unsubscribe removes the listener', () => {
+      const received: RecordingStatePayload[] = [];
+      const unsub = mock.api.onRecordingStateChanged((p) => received.push(p));
+
+      unsub();
+      mock.emitRecordingStateChanged(statePayload);
+      expect(received).toEqual([]);
     });
   });
 

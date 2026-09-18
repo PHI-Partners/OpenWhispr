@@ -1,9 +1,11 @@
 import { type IpcMainInvokeEvent, ipcMain } from 'electron';
-import { InvokeChannel, type InvokeContract, type RendererErrorPayload } from '@shared/ipc';
+import { InvokeChannel, type InvokeContract, type AudioChunkPayload, type RendererErrorPayload } from '@shared/ipc';
 import type { Logger } from '../logger';
+import type { RecordingController } from '../audio/recordingController';
 
 export interface IpcHandlerDeps {
   logger: Logger;
+  recordingController: RecordingController;
 }
 
 // ── Origin allowlist ──
@@ -75,6 +77,22 @@ const validateMeetingId: Validator<[number]> = (args) => {
   return [id];
 };
 
+const MAX_AUDIO_CHUNK_SIZE = 2 * 1024 * 1024;
+
+const validateAudioChunk: Validator<[AudioChunkPayload]> = (args) => {
+  if (args.length !== 1) throw new Error('expected exactly one argument');
+  const payload = args[0];
+  if (typeof payload !== 'object' || payload === null) throw new Error('payload must be an object');
+  const p = payload as Record<string, unknown>;
+  if (typeof p.seq !== 'number') throw new Error('payload.seq must be a number');
+  if (!Number.isInteger(p.seq)) throw new Error('payload.seq must be an integer');
+  if (p.seq < 0) throw new Error('payload.seq must be non-negative');
+  if (!(p.data instanceof Uint8Array)) throw new Error('payload.data must be a Buffer');
+  if (p.data.length === 0) throw new Error('payload.data must not be empty');
+  if (p.data.length > MAX_AUDIO_CHUNK_SIZE) throw new Error('payload.data exceeds maximum chunk size');
+  return [{ seq: p.seq, data: Buffer.from(p.data) }];
+};
+
 const validateRendererErrorPayload: Validator<[RendererErrorPayload]> = (args) => {
   if (args.length !== 1) throw new Error('expected exactly one argument');
   const payload = args[0];
@@ -108,14 +126,24 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   handle<[], ReturnType<InvokeContract['meeting-recording-start']>>(
     InvokeChannel.MeetingRecordingStart,
     noArgs,
-    () => {
-      throw new Error('Not implemented');
-    },
+    () => deps.recordingController.start(),
   );
 
-  handle<[], void>(InvokeChannel.MeetingRecordingStop, noArgs, () => {
-    throw new Error('Not implemented');
-  });
+  handle<[AudioChunkPayload], void>(
+    InvokeChannel.MeetingAudioChunk,
+    validateAudioChunk,
+    (payload) => deps.recordingController.audioChunk(payload.seq, Buffer.from(payload.data)),
+  );
+
+  handle<[], void>(InvokeChannel.MeetingRecordingStop, noArgs, () =>
+    deps.recordingController.stop(),
+  );
+
+  handle<[], ReturnType<InvokeContract['recording-get-state']>>(
+    InvokeChannel.RecordingGetState,
+    noArgs,
+    () => deps.recordingController.getState(),
+  );
 
   handle<[], ReturnType<InvokeContract['db-list-meetings']>>(InvokeChannel.DbListMeetings, noArgs, () => {
     throw new Error('Not implemented');

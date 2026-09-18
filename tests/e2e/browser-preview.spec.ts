@@ -39,9 +39,12 @@ test.describe('browser-preview', () => {
 
     expect(methods).toEqual([
       'getMeeting',
+      'getRecordingState',
       'listMeetings',
       'logRendererError',
+      'onRecordingStateChanged',
       'onTranscriptUpdate',
+      'sendAudioChunk',
       'startMeetingRecording',
       'stopMeetingRecording',
     ]);

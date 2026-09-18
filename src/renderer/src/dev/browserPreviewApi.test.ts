@@ -220,7 +220,10 @@ describe('installBrowserPreviewApi', () => {
     installBrowserPreviewApi();
     expect(window.api).toBeDefined();
     expect(typeof window.api.startMeetingRecording).toBe('function');
+    expect(typeof window.api.sendAudioChunk).toBe('function');
     expect(typeof window.api.stopMeetingRecording).toBe('function');
+    expect(typeof window.api.getRecordingState).toBe('function');
+    expect(typeof window.api.onRecordingStateChanged).toBe('function');
     expect(typeof window.api.onTranscriptUpdate).toBe('function');
     expect(typeof window.api.listMeetings).toBe('function');
     expect(typeof window.api.getMeeting).toBe('function');

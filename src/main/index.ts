@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import { Logger } from './logger';
+import { RecordingController } from './audio/recordingController';
+import { resolveFfmpegPath, resolvePaths } from './config';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
 import { configureContentSecurityPolicy, configurePermissions, hardenWindow } from './security';
 
@@ -47,7 +49,22 @@ app
   .then(async () => {
     configureContentSecurityPolicy(logger);
     configurePermissions(logger);
-    registerIpcHandlers({ logger });
+
+    const broadcast = (channel: string, payload: unknown): void => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send(channel, payload);
+      }
+    };
+
+    const paths = resolvePaths();
+    const recordingController = new RecordingController({
+      ffmpegPath: resolveFfmpegPath(),
+      recordingsDir: paths.recordings,
+      logger,
+      broadcast,
+    });
+
+    registerIpcHandlers({ logger, recordingController });
     const mainWindow = await createMainWindow();
     hardenWindow(mainWindow, logger);
     logger.info('app', 'OpenWhispr started');
