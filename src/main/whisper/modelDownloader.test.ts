@@ -9,7 +9,7 @@ import {
   generateCorruptBytes,
   generateScriptedBytes,
 } from '../../../tests/fakes/fake-model-host.mjs';
-import type { WhisperModel } from '@shared/whisperModels';
+import type { WhisperModel, WhisperModelName } from '@shared/whisperModels';
 import { type DownloadProgressFrame, ModelDownloader, ModelDownloaderError } from './modelDownloader';
 
 describe('ModelDownloader', () => {
@@ -372,6 +372,21 @@ describe('ModelDownloader', () => {
     expect(existsSync(`${finalPath}.tmp`)).toBe(false);
   });
 
+  // ── 10.5. Unknown model ──
+
+  it('rejects an unknown model name with UNKNOWN_MODEL error', async () => {
+    const downloader = new ModelDownloader({
+      modelsDir: tempDir,
+      baseUrl: host.url,
+    });
+
+    await expect(downloader.download('nonexistent' as WhisperModelName)).rejects.toSatisfy(
+      (err: unknown) => {
+        return err instanceof ModelDownloaderError && err.code === 'UNKNOWN_MODEL';
+      },
+    );
+  });
+
   // ── 11. Hash mismatch catches error and deletes file ──
 
   it('catches hash mismatch on correctly-sized body and deletes .tmp', async () => {
@@ -422,6 +437,53 @@ describe('ModelDownloader', () => {
     const terminalFrames = frames.filter((f) => f.type === 'complete' || f.type === 'error');
     expect(terminalFrames.length).toBe(1);
     expect(frames[frames.length - 1].type).toBe('complete');
+  });
+
+  // ── 12.5. Error terminal frame ──
+
+  it('error path emits exactly one terminal frame of type error', async () => {
+    host.setBehavior('404');
+
+    const frames: DownloadProgressFrame[] = [];
+    const downloader = new ModelDownloader({
+      modelsDir: tempDir,
+      baseUrl: host.url,
+      maxRetries: 0,
+      onProgress: (frame) => frames.push(frame),
+    });
+
+    await expect(downloader.download(testModel)).rejects.toThrow();
+
+    const terminalFrames = frames.filter((f) => f.type === 'complete' || f.type === 'error');
+    expect(terminalFrames).toHaveLength(1);
+    expect(terminalFrames[0].type).toBe('error');
+    expect(terminalFrames[0].error).toBeDefined();
+  });
+
+  // ── 12.6. downloadedBytes monotonicity ──
+
+  it('progress frames have non-decreasing downloadedBytes', async () => {
+    host.setBehavior('slow-trickle:512:20');
+
+    const frames: DownloadProgressFrame[] = [];
+    const downloader = new ModelDownloader({
+      modelsDir: tempDir,
+      baseUrl: host.url,
+      throttleMs: 50,
+      onProgress: (frame) => frames.push(frame),
+    });
+
+    await downloader.download(testModel);
+
+    const progressFrames = frames.filter((f) => f.type === 'progress');
+    expect(progressFrames.length).toBeGreaterThan(1);
+
+    for (let i = 1; i < progressFrames.length; i += 1) {
+      expect(progressFrames[i].downloadedBytes).toBeGreaterThanOrEqual(
+        progressFrames[i - 1].downloadedBytes,
+      );
+      expect(progressFrames[i].percentage).toBeGreaterThanOrEqual(progressFrames[i - 1].percentage);
+    }
   });
 
   // ── 13. Stale or oversized .tmp cleanup ──
