@@ -6,6 +6,7 @@ import {
   computeScriptedSha256,
   createFakeModelHost,
   type FakeModelHostInstance,
+  generateCorruptBytes,
   generateScriptedBytes,
 } from '../../../tests/fakes/fake-model-host.mjs';
 import type { WhisperModel } from '@shared/whisperModels';
@@ -477,6 +478,104 @@ describe('ModelDownloader', () => {
       } else {
         process.env.OW_MODEL_BASE_URL = originalEnv;
       }
+    }
+  });
+
+  // ── 15. Catalog injection is not bypassed by a global fallback ──
+
+  it('does not fall back to the global catalog when the injected catalog omits the model', async () => {
+    const downloader = new ModelDownloader({
+      modelsDir: tempDir,
+      baseUrl: host.url,
+      catalog: [testModel], // only 'tiny.en'; 'small.en' exists in the real global catalog but not here
+    });
+
+    await expect(downloader.download('small.en')).rejects.toSatisfy((err: unknown) => {
+      return err instanceof ModelDownloaderError && err.code === 'UNKNOWN_MODEL';
+    });
+  });
+
+  // ── 16. Non-retryable errors outside the positive list fail fast ──
+
+  it('does not retry non-retryable HTTP errors such as 416 Range Not Satisfiable', async () => {
+    // Seed a partial .tmp file whose offset exceeds the host's configured content length,
+    // so the resulting Range request is unsatisfiable (416), which is not in the retry list.
+    const tmpPath = join(tempDir, `${testModel.fileName}.tmp`);
+    writeFileSync(tmpPath, generateScriptedBytes(5000));
+    host.setLength(100);
+
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((...args: Parameters<typeof fetch>) => originalFetch(...args));
+    globalThis.fetch = fetchMock;
+
+    try {
+      const downloader = new ModelDownloader({
+        modelsDir: tempDir,
+        baseUrl: host.url,
+        retryBackoffCapMs: 10,
+        maxRetries: 3,
+      });
+
+      await expect(downloader.download(testModel)).rejects.toSatisfy((err: unknown) => {
+        return err instanceof ModelDownloaderError && err.code === 'HTTP_ERROR' && err.statusCode === 416;
+      });
+
+      // Non-retryable: exactly one attempt, no retries burned on a permanent error.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  // ── 17. Full-size but corrupt .tmp is discarded and retried, not skipped ──
+
+  it('discards a full-size but corrupt .tmp after a retryable failure and restarts the download', async () => {
+    const originalFetch = globalThis.fetch;
+    let callCount = 0;
+
+    globalThis.fetch = vi.fn().mockImplementation((...args: Parameters<typeof fetch>) => {
+      callCount += 1;
+      if (callCount === 1) {
+        // First attempt: deliver a full-size WRONG body, then fail mid-stream — leaving a
+        // .tmp file that is already at expectedSizeBytes but corrupt.
+        const corrupt = generateCorruptBytes(TEST_MODEL_LENGTH);
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(corrupt);
+          },
+          pull(controller) {
+            controller.error(new Error('simulated mid-stream failure'));
+          },
+        });
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: stream,
+          headers: new Headers(),
+        } as unknown as Response);
+      }
+      // Subsequent attempts hit the real fake host, which serves correct content.
+      return originalFetch(...args);
+    });
+
+    try {
+      const downloader = new ModelDownloader({
+        modelsDir: tempDir,
+        baseUrl: host.url,
+        retryBackoffCapMs: 10,
+        maxRetries: 1,
+      });
+
+      const finalPath = await downloader.download(testModel);
+
+      expect(existsSync(finalPath)).toBe(true);
+      expect(existsSync(`${finalPath}.tmp`)).toBe(false);
+      const content = readFileSync(finalPath);
+      expect(content.equals(generateScriptedBytes(TEST_MODEL_LENGTH))).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 });

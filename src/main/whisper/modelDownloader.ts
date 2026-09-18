@@ -6,15 +6,9 @@ import {
   FREE_DISK_HEADROOM_FACTOR,
   RETRY_BACKOFF_CAP_MS,
   TMP_REAP_AGE_MS,
-  readOverrides,
+  readModelBaseUrl,
 } from '../config';
-import {
-  findModel,
-  HF_REVISION,
-  type WhisperModel,
-  type WhisperModelName,
-  WHISPER_MODELS,
-} from '@shared/whisperModels';
+import { HF_REVISION, type WhisperModel, type WhisperModelName, WHISPER_MODELS } from '@shared/whisperModels';
 
 export const DEFAULT_MODEL_BASE_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/${HF_REVISION}`;
 
@@ -127,7 +121,7 @@ let globalActiveModel: WhisperModelName | null = null;
 
 export class ModelDownloader {
   private readonly modelsDir: string;
-  private readonly baseUrl?: string;
+  private readonly baseUrl: string;
   private readonly getAvailableDiskSpace: (dir: string) => Promise<number>;
   private readonly onProgress?: (frame: DownloadProgressFrame) => void;
   private readonly stallTimeoutMs: number;
@@ -145,7 +139,8 @@ export class ModelDownloader {
 
   constructor(options: ModelDownloaderOptions) {
     this.modelsDir = options.modelsDir;
-    this.baseUrl = options.baseUrl;
+    const rawBaseUrl = options.baseUrl ?? readModelBaseUrl() ?? DEFAULT_MODEL_BASE_URL;
+    this.baseUrl = rawBaseUrl.replace(/\/+$/, '');
     this.getAvailableDiskSpace = options.getAvailableDiskSpace ?? defaultGetAvailableDiskSpace;
     this.onProgress = options.onProgress;
     this.stallTimeoutMs = options.stallTimeoutMs ?? DOWNLOAD_STALL_TIMEOUT_MS;
@@ -181,9 +176,7 @@ export class ModelDownloader {
 
   async download(modelOrName: WhisperModelName | WhisperModel): Promise<string> {
     const model: WhisperModel | undefined =
-      typeof modelOrName === 'string'
-        ? (this.catalog.find((m) => m.name === modelOrName) ?? findModel(modelOrName))
-        : modelOrName;
+      typeof modelOrName === 'string' ? this.catalog.find((m) => m.name === modelOrName) : modelOrName;
 
     if (!model) {
       const name = typeof modelOrName === 'string' ? modelOrName : modelOrName.name;
@@ -318,9 +311,11 @@ export class ModelDownloader {
           throw err;
         }
 
-        // Check if error is non-retryable (404 Not Found, Insufficient Disk, etc.)
-        if (err instanceof ModelDownloaderError && err.code === 'NOT_FOUND') {
-          throw err;
+        // Positive list: only these codes are retryable. Any other ModelDownloaderError
+        // (NOT_FOUND, HTTP_ERROR, etc.) is non-retryable by default.
+        if (err instanceof ModelDownloaderError) {
+          const retryable = err.code === 'SERVER_ERROR' || err.code === 'DOWNLOAD_STALLED';
+          if (!retryable) throw err;
         }
 
         if (attempt >= this.maxRetries) {
@@ -330,7 +325,14 @@ export class ModelDownloader {
         // Determine current bytes on disk to resume from on next attempt
         try {
           const stat = await fsPromises.stat(tmpPath);
-          offset = stat.size <= model.expectedSizeBytes ? stat.size : 0;
+          if (stat.size >= model.expectedSizeBytes) {
+            // Full-size but the attempt still failed: the file is corrupt. Discard and
+            // restart fresh instead of resuming from an offset that skips the download.
+            await fsPromises.unlink(tmpPath).catch(() => {});
+            offset = 0;
+          } else {
+            offset = stat.size;
+          }
         } catch {
           offset = 0;
         }
@@ -354,11 +356,7 @@ export class ModelDownloader {
       return;
     }
 
-    const resolvedBaseUrl = (this.baseUrl ?? readOverrides().modelBaseUrl ?? DEFAULT_MODEL_BASE_URL).replace(
-      /\/+$/,
-      '',
-    );
-    const url = `${resolvedBaseUrl}/${model.fileName}`;
+    const url = `${this.baseUrl}/${model.fileName}`;
 
     const headers: Record<string, string> = {};
     if (offset > 0) {

@@ -41,6 +41,24 @@ export interface Overrides {
   modelBaseUrl: string | undefined;
 }
 
+export function readModelBaseUrl(): string | undefined {
+  const raw = process.env.OW_MODEL_BASE_URL;
+  if (!raw) return undefined;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new ConfigError('INVALID_OVERRIDE', `OW_MODEL_BASE_URL is not a valid URL: ${raw}`);
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new ConfigError(
+      'INVALID_OVERRIDE',
+      `OW_MODEL_BASE_URL must use http or https, got: ${url.protocol}`,
+    );
+  }
+  return raw;
+}
+
 export function readOverrides(): Overrides {
   const env = process.env;
 
@@ -56,25 +74,7 @@ export function readOverrides(): Overrides {
     chunkSeconds = parsed;
   }
 
-  let modelBaseUrl: string | undefined;
-  if (env.OW_MODEL_BASE_URL) {
-    let url: URL;
-    try {
-      url = new URL(env.OW_MODEL_BASE_URL);
-    } catch {
-      throw new ConfigError(
-        'INVALID_OVERRIDE',
-        `OW_MODEL_BASE_URL is not a valid URL: ${env.OW_MODEL_BASE_URL}`,
-      );
-    }
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      throw new ConfigError(
-        'INVALID_OVERRIDE',
-        `OW_MODEL_BASE_URL must use http or https, got: ${url.protocol}`,
-      );
-    }
-    modelBaseUrl = env.OW_MODEL_BASE_URL;
-  }
+  const modelBaseUrl = readModelBaseUrl();
 
   return {
     userDataDir: env.OW_USER_DATA_DIR || undefined,

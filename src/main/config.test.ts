@@ -20,6 +20,7 @@ import {
   FREE_DISK_HEADROOM_FACTOR,
   TMP_REAP_AGE_MS,
   readOverrides,
+  readModelBaseUrl,
   resolvePaths,
   resolveFfmpegPath,
   resolveWhisperBinDir,
@@ -182,6 +183,32 @@ describe('readOverrides', () => {
   it('rejects non-URL OW_MODEL_BASE_URL', () => {
     process.env.OW_MODEL_BASE_URL = 'not-a-url';
     expect(() => readOverrides()).toThrow(ConfigError);
+  });
+});
+
+// ── readModelBaseUrl ──
+
+describe('readModelBaseUrl', () => {
+  it('returns undefined when OW_MODEL_BASE_URL is unset', () => {
+    expect(readModelBaseUrl()).toBeUndefined();
+  });
+
+  it('returns the raw value for a valid http(s) URL', () => {
+    process.env.OW_MODEL_BASE_URL = 'http://localhost:8080';
+    expect(readModelBaseUrl()).toBe('http://localhost:8080');
+    process.env.OW_MODEL_BASE_URL = 'https://example.com/models';
+    expect(readModelBaseUrl()).toBe('https://example.com/models');
+  });
+
+  it('rejects non-http OW_MODEL_BASE_URL', () => {
+    process.env.OW_MODEL_BASE_URL = 'ftp://example.com';
+    expect(() => readModelBaseUrl()).toThrow(ConfigError);
+    expect(() => readModelBaseUrl()).toThrow(/OW_MODEL_BASE_URL/);
+  });
+
+  it('rejects non-URL OW_MODEL_BASE_URL', () => {
+    process.env.OW_MODEL_BASE_URL = 'not-a-url';
+    expect(() => readModelBaseUrl()).toThrow(ConfigError);
   });
 });
 
