@@ -9,7 +9,7 @@ describe('renderWithApp', () => {
     renderWithApp(<App />);
 
     expect(window.api).toBeDefined();
-    expect(screen.getByText('Meeting Recorder')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument();
   });
 
   it('returns a working mock API with default invoke values', async () => {
@@ -56,9 +56,9 @@ describe('renderWithApp', () => {
 
   it('returns a working user-event instance', async () => {
     const { user } = renderWithApp(<App />);
-    const heading = screen.getByText('Meeting Recorder');
+    const button = screen.getByRole('button', { name: 'Record' });
 
-    await expect(user.click(heading)).resolves.toBeUndefined();
+    await expect(user.click(button)).resolves.toBeUndefined();
   });
 
   it('calls registered storeResetFns on render', () => {

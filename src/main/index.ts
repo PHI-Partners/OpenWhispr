@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import { Logger } from './logger';
 import { RecordingController } from './audio/recordingController';
 import { resolveFfmpegPath, resolvePaths } from './config';
@@ -64,7 +64,11 @@ app
       broadcast,
     });
 
-    registerIpcHandlers({ logger, recordingController });
+    registerIpcHandlers({
+      logger,
+      recordingController,
+      openExternal: (url: string) => shell.openExternal(url),
+    });
     const mainWindow = await createMainWindow();
     hardenWindow(mainWindow, logger);
     logger.info('app', 'OpenWhispr started');

@@ -44,6 +44,7 @@ test.describe('browser-preview', () => {
       'logRendererError',
       'onRecordingStateChanged',
       'onTranscriptUpdate',
+      'openMicSettings',
       'sendAudioChunk',
       'startMeetingRecording',
       'stopMeetingRecording',

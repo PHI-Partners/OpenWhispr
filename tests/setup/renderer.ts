@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
-import { teardown } from '../helpers/renderWithApp';
+import { storeResetFns, teardown } from '../helpers/renderWithApp';
+import { resetRecordingStore } from '@/stores/useRecordingStore';
+
+storeResetFns.add(resetRecordingStore);
 
 afterEach(teardown);

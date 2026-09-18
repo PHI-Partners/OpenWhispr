@@ -6,6 +6,7 @@ import type { RecordingController } from '../audio/recordingController';
 export interface IpcHandlerDeps {
   logger: Logger;
   recordingController: RecordingController;
+  openExternal: (url: string) => Promise<void>;
 }
 
 // ── Origin allowlist ──
@@ -156,4 +157,8 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       throw new Error('Not implemented');
     },
   );
+
+  handle<[], void>(InvokeChannel.AppOpenMicSettings, noArgs, () => {
+    void deps.openExternal('ms-settings:privacy-microphone');
+  });
 }

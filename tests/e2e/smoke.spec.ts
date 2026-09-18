@@ -28,6 +28,7 @@ test.describe('smoke', () => {
       'logRendererError',
       'onRecordingStateChanged',
       'onTranscriptUpdate',
+      'openMicSettings',
       'sendAudioChunk',
       'startMeetingRecording',
       'stopMeetingRecording',

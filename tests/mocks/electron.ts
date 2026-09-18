@@ -198,6 +198,12 @@ export function simulateHeadersReceived(details: {
   });
 }
 
+// ── shell ──
+
+export const shell = {
+  openExternal: vi.fn((_url: string): Promise<void> => Promise.resolve()),
+};
+
 // ── desktopCapturer ──
 
 export const desktopCapturer = {
@@ -245,6 +251,7 @@ export function resetElectronMock(): void {
   permissionRequestHandler = null;
   permissionCheckHandler = null;
   headersReceivedHandler = null;
+  shell.openExternal.mockClear();
   app.isPackaged = false;
   app.getPath.mockImplementation((name: string) => `/mock/${name}`);
   app.getAppPath.mockReturnValue('/mock/app');

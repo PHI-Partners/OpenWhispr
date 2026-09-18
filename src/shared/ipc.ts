@@ -7,6 +7,7 @@ export const InvokeChannel = {
   DbListMeetings: 'db-list-meetings',
   DbGetMeeting: 'db-get-meeting',
   LogRendererError: 'log-renderer-error',
+  AppOpenMicSettings: 'app-open-mic-settings',
 } as const;
 export type InvokeChannel = (typeof InvokeChannel)[keyof typeof InvokeChannel];
 
@@ -71,6 +72,7 @@ export interface InvokeContract {
   [InvokeChannel.DbListMeetings]: () => MeetingSummary[];
   [InvokeChannel.DbGetMeeting]: (id: number) => Meeting;
   [InvokeChannel.LogRendererError]: (payload: RendererErrorPayload) => void;
+  [InvokeChannel.AppOpenMicSettings]: () => void;
 }
 
 /** Payload per event channel; a channel without an entry breaks `SubscribeMethod`. */
@@ -99,4 +101,5 @@ export interface Api {
   listMeetings: InvokeMethod<typeof InvokeChannel.DbListMeetings>;
   getMeeting: InvokeMethod<typeof InvokeChannel.DbGetMeeting>;
   logRendererError: InvokeMethod<typeof InvokeChannel.LogRendererError>;
+  openMicSettings: InvokeMethod<typeof InvokeChannel.AppOpenMicSettings>;
 }

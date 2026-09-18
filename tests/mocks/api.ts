@@ -59,6 +59,8 @@ export function createMockApi(): MockApiResult {
     }),
 
     logRendererError: vi.fn<Api['logRendererError']>().mockResolvedValue(undefined),
+
+    openMicSettings: vi.fn<Api['openMicSettings']>().mockResolvedValue(undefined),
   } satisfies Api;
 
   return {

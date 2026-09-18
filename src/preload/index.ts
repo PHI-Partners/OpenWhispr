@@ -30,6 +30,7 @@ const api: Api = {
   listMeetings: () => invoke(InvokeChannel.DbListMeetings),
   getMeeting: (id) => invoke(InvokeChannel.DbGetMeeting, id),
   logRendererError: (payload) => invoke(InvokeChannel.LogRendererError, payload),
+  openMicSettings: () => invoke(InvokeChannel.AppOpenMicSettings),
 };
 
 contextBridge.exposeInMainWorld('api', api);

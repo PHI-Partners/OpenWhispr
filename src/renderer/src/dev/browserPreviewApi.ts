@@ -128,6 +128,11 @@ export function createBrowserPreviewApi(): Api {
       console.warn('[browser-preview] Renderer error:', payload.source, payload.message);
       return Promise.resolve();
     },
+
+    openMicSettings() {
+      console.info('[browser-preview] Open microphone settings requested');
+      return Promise.resolve();
+    },
   };
 
   return api;

@@ -1,5 +1,4 @@
 import { vi, type Mock } from 'vitest';
-import crypto from 'node:crypto';
 
 // ── FakeMediaStreamTrack ──
 
@@ -13,7 +12,7 @@ export class FakeMediaStreamTrack {
   private readonly endedListeners = new Set<() => void>();
 
   constructor(kind: 'audio' | 'video' = 'audio', id?: string) {
-    this.id = id ?? crypto.randomUUID();
+    this.id = id ?? globalThis.crypto.randomUUID();
     this.kind = kind;
     this.enabled = true;
     this.readyState = 'live';
@@ -57,7 +56,7 @@ export class FakeMediaStream {
   private readonly tracks: FakeMediaStreamTrack[];
 
   constructor(tracks: FakeMediaStreamTrack[] = []) {
-    this.id = crypto.randomUUID();
+    this.id = globalThis.crypto.randomUUID();
     this.tracks = [...tracks];
   }
 
@@ -148,7 +147,7 @@ export class FakeMediaRecorder {
   private fireDataAvailable(): void {
     const event: FakeDataAvailableEvent = {
       type: 'dataavailable',
-      data: new Blob([FakeMediaRecorder.chunkData]),
+      data: new Blob([FakeMediaRecorder.chunkData.buffer as ArrayBuffer]),
     };
     this.ondataavailable?.(event);
     this.fireEvent('dataavailable', event);

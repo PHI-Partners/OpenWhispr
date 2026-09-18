@@ -42,6 +42,7 @@ function createMockRecordingController() {
 describe('registerIpcHandlers', () => {
   let mockLogger: ReturnType<typeof createMockLogger>;
   let mockController: ReturnType<typeof createMockRecordingController>;
+  let mockOpenExternal: ReturnType<typeof vi.fn<(url: string) => Promise<void>>>;
   const savedEnv = process.env.ELECTRON_RENDERER_URL;
 
   beforeEach(() => {
@@ -49,9 +50,11 @@ describe('registerIpcHandlers', () => {
     delete process.env.ELECTRON_RENDERER_URL;
     mockLogger = createMockLogger();
     mockController = createMockRecordingController();
+    mockOpenExternal = vi.fn<(url: string) => Promise<void>>().mockResolvedValue(undefined);
     registerIpcHandlers({
       logger: mockLogger as unknown as Logger,
       recordingController: mockController as unknown as RecordingController,
+      openExternal: mockOpenExternal,
     });
   });
 
@@ -88,6 +91,7 @@ describe('registerIpcHandlers', () => {
       registerIpcHandlers({
         logger: mockLogger as unknown as Logger,
         recordingController: mockController as unknown as RecordingController,
+        openExternal: mockOpenExternal,
       });
 
       await expect(
@@ -101,6 +105,7 @@ describe('registerIpcHandlers', () => {
       registerIpcHandlers({
         logger: mockLogger as unknown as Logger,
         recordingController: mockController as unknown as RecordingController,
+        openExternal: mockOpenExternal,
       });
 
       await expect(
@@ -336,6 +341,21 @@ describe('registerIpcHandlers', () => {
       const result = await simulateInvoke('recording-get-state');
       expect(mockController.getState).toHaveBeenCalledOnce();
       expect(result).toEqual({ state: 'idle', sessionId: null });
+    });
+  });
+
+  // ── Open mic settings ──
+
+  describe('app-open-mic-settings', () => {
+    it('delegates to openExternal with the microphone settings URL', async () => {
+      await simulateInvoke('app-open-mic-settings');
+      expect(mockOpenExternal).toHaveBeenCalledWith('ms-settings:privacy-microphone');
+    });
+
+    it('rejects extra arguments', async () => {
+      await expect(simulateInvoke('app-open-mic-settings', 'extra')).rejects.toThrow(
+        'expected no arguments',
+      );
     });
   });
 
