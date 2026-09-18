@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 
 vi.mock('electron', async () => import('../../tests/mocks/electron'));
 
@@ -22,6 +22,8 @@ import {
   readOverrides,
   resolvePaths,
   resolveFfmpegPath,
+  resolveWhisperBinDir,
+  preflightWhisperBinaries,
   ConfigError,
 } from './config';
 
@@ -341,5 +343,101 @@ describe('resolveFfmpegPath', () => {
     (app as unknown as { isPackaged: boolean }).isPackaged = true;
     const result = resolveFfmpegPath();
     expect(result).not.toContain('app.asar.unpacked.unpacked');
+  });
+});
+
+// ── resolveWhisperBinDir ──
+
+describe('resolveWhisperBinDir', () => {
+  it('returns binDir/cpu', () => {
+    expect(resolveWhisperBinDir('/app/bin')).toBe(join('/app/bin', 'cpu'));
+  });
+});
+
+// ── preflightWhisperBinaries ──
+
+describe('preflightWhisperBinaries', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await makeTempDir();
+  });
+
+  it('throws WHISPER_BINARIES_MISSING when cpu dir does not exist', () => {
+    expect(() => preflightWhisperBinaries(tempDir, undefined)).toThrow(ConfigError);
+    try {
+      preflightWhisperBinaries(tempDir, undefined);
+    } catch (e) {
+      expect((e as ConfigError).code).toBe('WHISPER_BINARIES_MISSING');
+    }
+  });
+
+  it('throws WHISPER_BINARIES_MISSING when required files are absent', () => {
+    const cpuDir = join(tempDir, 'cpu');
+    mkdirSync(cpuDir, { recursive: true });
+
+    expect(() => preflightWhisperBinaries(tempDir, undefined)).toThrow(ConfigError);
+    expect(() => preflightWhisperBinaries(tempDir, undefined)).toThrow(
+      /whisper-server\.exe/,
+    );
+  });
+
+  it('includes actionable message in the error', () => {
+    const cpuDir = join(tempDir, 'cpu');
+    mkdirSync(cpuDir, { recursive: true });
+
+    expect(() => preflightWhisperBinaries(tempDir, undefined)).toThrow(
+      /npm run setup:whisper/,
+    );
+  });
+
+  it('does not throw when all required files are present', () => {
+    const cpuDir = join(tempDir, 'cpu');
+    mkdirSync(cpuDir, { recursive: true });
+
+    const required = [
+      'whisper-server.exe',
+      'whisper.dll',
+      'ggml.dll',
+      'ggml-base.dll',
+      'msvcp140.dll',
+      'vcruntime140.dll',
+      'vcruntime140_1.dll',
+      'vcomp140.dll',
+    ];
+    for (const f of required) {
+      writeFileSync(join(cpuDir, f), 'dummy');
+    }
+
+    expect(() => preflightWhisperBinaries(tempDir, undefined)).not.toThrow();
+  });
+
+  it('skips check when OW_WHISPER_SERVER_CMD is set', () => {
+    // cpuDir doesn't exist, but whisperServerCmd is set — should not throw
+    expect(() =>
+      preflightWhisperBinaries(tempDir, '/custom/whisper-server'),
+    ).not.toThrow();
+  });
+
+  it('does not check for model files (missing model is not an error)', () => {
+    const cpuDir = join(tempDir, 'cpu');
+    mkdirSync(cpuDir, { recursive: true });
+
+    const required = [
+      'whisper-server.exe',
+      'whisper.dll',
+      'ggml.dll',
+      'ggml-base.dll',
+      'msvcp140.dll',
+      'vcruntime140.dll',
+      'vcruntime140_1.dll',
+      'vcomp140.dll',
+    ];
+    for (const f of required) {
+      writeFileSync(join(cpuDir, f), 'dummy');
+    }
+
+    // No model files anywhere — preflight should still pass
+    expect(() => preflightWhisperBinaries(tempDir, undefined)).not.toThrow();
   });
 });

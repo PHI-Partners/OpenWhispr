@@ -2,7 +2,7 @@ node_modules/
 out/
 dist/
 resources/bin/
-resources/models/
+.cache/
 coverage/
 playwright-report/
 test-results/

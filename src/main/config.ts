@@ -149,6 +149,43 @@ export function resolveFfmpegPath(): string {
     : ffmpegPathRaw;
 }
 
+export function resolveWhisperBinDir(binDir: string): string {
+  return join(binDir, 'cpu');
+}
+
+export function preflightWhisperBinaries(
+  binDir: string,
+  whisperServerCmd: string | undefined,
+): void {
+  if (whisperServerCmd) return;
+
+  const cpuDir = resolveWhisperBinDir(binDir);
+  const required = [
+    'whisper-server.exe',
+    'whisper.dll',
+    'ggml.dll',
+    'ggml-base.dll',
+    'msvcp140.dll',
+    'vcruntime140.dll',
+    'vcruntime140_1.dll',
+    'vcomp140.dll',
+  ];
+  const missing = required.filter((f) => {
+    try {
+      accessSync(join(cpuDir, f), fsConstants.R_OK);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  if (missing.length > 0) {
+    throw new ConfigError(
+      'WHISPER_BINARIES_MISSING',
+      `Missing whisper binaries in ${cpuDir}: ${missing.join(', ')}. Run "npm run setup:whisper" to provision them.`,
+    );
+  }
+}
+
 export function resolvePaths(): AppPaths {
   const overrides = readOverrides();
   const userData = overrides.userDataDir ?? app.getPath('userData');
