@@ -1,5 +1,7 @@
 import whisperModelsJson from './whisperModels.json';
 
+export const HF_REVISION = '5359861c739e955e79d9a303bcbc70fb988958b1';
+
 export const WHISPER_MODEL_NAMES = [
   'tiny',
   'tiny.en',

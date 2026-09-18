@@ -65,6 +65,11 @@ describe('whisperModels.json manifest', () => {
     const committed: unknown = JSON.parse(raw);
     expect(committed).toEqual(MANIFEST);
   });
+
+  it('HF_REVISION matches the shared whisperModels constant', async () => {
+    const { HF_REVISION: sharedRevision } = await import('../src/shared/whisperModels');
+    expect(HF_REVISION).toBe(sharedRevision);
+  });
 });
 
 // ── sha256 helper ──
