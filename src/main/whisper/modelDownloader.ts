@@ -350,14 +350,15 @@ export class ModelDownloader {
     offset: number,
     signal: AbortSignal,
   ): Promise<void> {
-    // If the file is already fully downloaded on disk, verify it
     if (offset >= model.expectedSizeBytes) {
       return;
     }
 
-    const baseUrl = this.baseUrl ?? readOverrides().modelBaseUrl ?? DEFAULT_MODEL_BASE_URL;
-    const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-    const url = `${cleanBaseUrl}/${model.fileName}`;
+    const resolvedBaseUrl = (this.baseUrl ?? readOverrides().modelBaseUrl ?? DEFAULT_MODEL_BASE_URL).replace(
+      /\/+$/,
+      '',
+    );
+    const url = `${resolvedBaseUrl}/${model.fileName}`;
 
     const headers: Record<string, string> = {};
     if (offset > 0) {
@@ -382,7 +383,7 @@ export class ModelDownloader {
       );
     }
 
-    if (!response.ok && response.status !== 206) {
+    if (!response.ok) {
       throw new ModelDownloaderError(
         'HTTP_ERROR',
         `HTTP error ${response.status} downloading "${model.fileName}"`,
@@ -394,16 +395,15 @@ export class ModelDownloader {
       throw new ModelDownloaderError('HTTP_ERROR', 'HTTP response body is null');
     }
 
-    // Determine append or write mode:
-    // If server answered 206 Partial Content, append to .tmp from offset.
-    // If server answered 200 OK to a ranged request, restart from zero!
     const isPartial = response.status === 206;
     let downloadedBytes = isPartial ? offset : 0;
     const fileFlags = isPartial ? 'a' : 'w';
 
     const writeStream = createWriteStream(tmpPath, { flags: fileFlags });
+    writeStream.on('error', (err) => {
+      this.activeAbortController?.abort(err);
+    });
 
-    // Stall timer: abort attempt if no data arrives within stallTimeoutMs
     let stallTimer: NodeJS.Timeout | null = null;
     let isStalled = false;
 
@@ -427,7 +427,12 @@ export class ModelDownloader {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done || signal.aborted) break;
+        if (done) break;
+        if (signal.aborted) {
+          throw signal.reason instanceof Error
+            ? signal.reason
+            : new Error(String(signal.reason ?? 'Download aborted'));
+        }
 
         resetStallTimer();
 
@@ -455,6 +460,7 @@ export class ModelDownloader {
       throw err;
     } finally {
       if (stallTimer) clearTimeout(stallTimer);
+      await reader.cancel().catch(() => {});
       await new Promise<void>((resClose) => {
         if (writeStream.closed) {
           resClose();
