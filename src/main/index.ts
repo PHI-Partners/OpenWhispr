@@ -3,6 +3,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import { Logger } from './logger';
 import { RecordingController } from './audio/recordingController';
 import { resolveFfmpegPath, resolvePaths } from './config';
+import { ModelStore } from './whisper/modelStore';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
 import { configureContentSecurityPolicy, configurePermissions, hardenWindow } from './security';
 
@@ -57,6 +58,10 @@ app
     };
 
     const paths = resolvePaths();
+    const reapedTempFiles = new ModelStore(paths.models).reapStaleTemp();
+    if (reapedTempFiles.length > 0) {
+      logger.info('models', `Reaped ${reapedTempFiles.length} stale model download temp file(s)`);
+    }
     const recordingController = new RecordingController({
       ffmpegPath: resolveFfmpegPath(),
       recordingsDir: paths.recordings,
