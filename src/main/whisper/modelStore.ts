@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { readdirSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { findModel, WHISPER_MODELS, type WhisperModelName } from '@shared/whisperModels';
 import { TMP_REAP_AGE_MS } from '../config';
@@ -28,18 +28,19 @@ function isNotFound(error: unknown): boolean {
 
 const TEMP_SUFFIX = '.tmp';
 
+export interface ReapWarning {
+  file: string;
+  error: unknown;
+}
+
 export class ModelStore {
   private readonly modelsDir: string;
+  readonly reapWarnings: ReapWarning[] = [];
 
   constructor(modelsDir: string) {
     this.modelsDir = modelsDir;
   }
 
-  /**
-   * Validates the name against the catalog before joining, so a crafted name can
-   * never traverse out of the models directory: the returned path is always built
-   * from the catalog's own `fileName`.
-   */
   resolveModelPath(name: string): string {
     const model = findModel(name);
     if (!model) {
@@ -48,7 +49,6 @@ export class ModelStore {
     return join(this.modelsDir, model.fileName);
   }
 
-  /** Catalog-driven inventory: unrelated files in the directory are never reported. */
   list(): ModelInventoryEntry[] {
     return WHISPER_MODELS.map((model) => {
       const sizeOnDiskBytes = this.installedFileSize(join(this.modelsDir, model.fileName));
@@ -87,7 +87,6 @@ export class ModelStore {
     return removed;
   }
 
-  /** Startup hygiene: drops download temp files abandoned more than 24 h ago. */
   reapStaleTemp(): string[] {
     const reaped: string[] = [];
     const cutoff = Date.now() - TMP_REAP_AGE_MS;
@@ -108,8 +107,11 @@ export class ModelStore {
         if (!stats.isFile() || stats.mtimeMs >= cutoff) continue;
         unlinkSync(filePath);
         reaped.push(entry);
-      } catch {
-        // A temp file that cannot be inspected or removed must not break startup.
+      } catch (error) {
+        if (!isNotFound(error)) {
+          // EBUSY (locked by another download) or EPERM — log but don't break startup.
+          this.reapWarnings.push({ file: entry, error });
+        }
       }
     }
 
@@ -117,7 +119,6 @@ export class ModelStore {
   }
 
   private installedFileSize(filePath: string): number | null {
-    if (!existsSync(filePath)) return null;
     try {
       const stats = statSync(filePath);
       return stats.isFile() ? stats.size : null;

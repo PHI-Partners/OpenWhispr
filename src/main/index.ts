@@ -58,9 +58,14 @@ app
     };
 
     const paths = resolvePaths();
-    const reapedTempFiles = new ModelStore(paths.models).reapStaleTemp();
+    const modelStore = new ModelStore(paths.models);
+    const reapedTempFiles = modelStore.reapStaleTemp();
     if (reapedTempFiles.length > 0) {
       logger.info('models', `Reaped ${reapedTempFiles.length} stale model download temp file(s)`);
+    }
+    for (const w of modelStore.reapWarnings) {
+      const reason = w.error instanceof Error ? w.error.message : String(w.error);
+      logger.warn('models', `Could not reap temp file ${w.file}: ${reason}`);
     }
     const recordingController = new RecordingController({
       ffmpegPath: resolveFfmpegPath(),

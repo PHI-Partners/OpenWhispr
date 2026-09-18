@@ -1,10 +1,5 @@
 import whisperModelsJson from './whisperModels.json';
 
-/**
- * The catalog of whisper.cpp models, typed in code because a JSON import widens
- * its string values to `string`; `parseWhisperModels` validates the JSON against
- * this list at runtime.
- */
 export const WHISPER_MODEL_NAMES = [
   'tiny',
   'tiny.en',
@@ -45,10 +40,6 @@ function isWhisperModelName(value: unknown): value is WhisperModelName {
   return typeof value === 'string' && MODEL_NAME_SET.has(value);
 }
 
-/**
- * Runtime guard for the `whisperModels.json` cast: returns fresh objects holding
- * exactly the validated fields, or throws when an entry cannot be trusted.
- */
 export function parseWhisperModels(value: unknown): readonly WhisperModel[] {
   if (!Array.isArray(value)) {
     throw catalogError('expected an array of model entries');
