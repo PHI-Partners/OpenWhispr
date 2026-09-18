@@ -1,5 +1,19 @@
-/** Services the handlers delegate to; each feature task adds the service its channels need. */
-export type IpcHandlerDeps = Record<string, never>;
+import { ipcMain } from 'electron';
+import { InvokeChannel, type RendererErrorPayload } from '@shared/ipc';
+import type { Logger } from '../logger';
 
-/** Single registration point for the `ipcMain.handle` of every invoke channel in `@shared/ipc`. */
-export function registerIpcHandlers(_deps: IpcHandlerDeps): void {}
+export interface IpcHandlerDeps {
+  logger: Logger;
+}
+
+export function registerIpcHandlers(deps: IpcHandlerDeps): void {
+  ipcMain.handle(
+    InvokeChannel.LogRendererError,
+    (_event: unknown, payload: RendererErrorPayload) => {
+      deps.logger.error(
+        'renderer',
+        `[${payload.source}] ${payload.message}${payload.stack ? '\n' + payload.stack : ''}`,
+      );
+    },
+  );
+}

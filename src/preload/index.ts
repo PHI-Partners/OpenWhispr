@@ -26,6 +26,7 @@ const api: Api = {
   onTranscriptUpdate: (listener) => subscribe(EventChannel.TranscriptUpdate, listener),
   listMeetings: () => invoke(InvokeChannel.DbListMeetings),
   getMeeting: (id) => invoke(InvokeChannel.DbGetMeeting, id),
+  logRendererError: (payload) => invoke(InvokeChannel.LogRendererError, payload),
 };
 
 contextBridge.exposeInMainWorld('api', api);

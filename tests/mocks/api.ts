@@ -39,6 +39,8 @@ export function createMockApi(): MockApiResult {
         transcriptListeners.delete(listener);
       };
     }),
+
+    logRendererError: vi.fn<Api['logRendererError']>().mockResolvedValue(undefined),
   } satisfies Api;
 
   return {

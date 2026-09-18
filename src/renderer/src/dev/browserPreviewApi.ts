@@ -92,6 +92,11 @@ export function createBrowserPreviewApi(): Api {
       }
       return Promise.resolve({ ...meeting });
     },
+
+    logRendererError(payload) {
+      console.warn('[browser-preview] Renderer error:', payload.source, payload.message);
+      return Promise.resolve();
+    },
   };
 
   return api;

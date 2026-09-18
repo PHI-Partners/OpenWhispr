@@ -1,6 +1,24 @@
 import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
+import { Logger } from './logger';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
+
+// ── Early logger (before app.whenReady) ──
+
+const userData = process.env.OW_USER_DATA_DIR || app.getPath('userData');
+const logger = new Logger({ logsDir: join(userData, 'logs') });
+
+process.on('uncaughtException', (err: Error) => {
+  logger.error('process', `Uncaught exception: ${err.stack ?? err.message}`);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  const message =
+    reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+  logger.error('process', `Unhandled rejection: ${message}`);
+});
+
+// ── App lifecycle ──
 
 async function createMainWindow(): Promise<void> {
   const mainWindow = new BrowserWindow({
@@ -9,7 +27,6 @@ async function createMainWindow(): Promise<void> {
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
-      // The main window hosts audio capture, which must not be throttled while hidden.
       backgroundThrottling: false,
       experimentalFeatures: false,
     },
@@ -26,7 +43,16 @@ async function createMainWindow(): Promise<void> {
 app
   .whenReady()
   .then(async () => {
-    registerIpcHandlers({});
+    registerIpcHandlers({ logger });
     await createMainWindow();
+    logger.info('app', 'OpenWhispr started');
   })
-  .catch((error: unknown) => console.error('Failed to start the app', error));
+  .catch((error: unknown) => {
+    const message =
+      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    logger.error('app', `Failed to start: ${message}`);
+  });
+
+app.on('will-quit', () => {
+  logger.close();
+});

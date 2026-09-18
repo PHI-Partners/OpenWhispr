@@ -40,6 +40,7 @@ test.describe('browser-preview', () => {
     expect(methods).toEqual([
       'getMeeting',
       'listMeetings',
+      'logRendererError',
       'onTranscriptUpdate',
       'startMeetingRecording',
       'stopMeetingRecording',

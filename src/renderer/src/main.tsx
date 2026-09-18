@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { installErrorCapture } from './errorCapture';
 import './index.css';
 
 async function bootstrap(): Promise<void> {
@@ -8,6 +9,8 @@ async function bootstrap(): Promise<void> {
     const { installBrowserPreviewApi } = await import('./dev/browserPreviewApi');
     installBrowserPreviewApi();
   }
+
+  installErrorCapture();
 
   const rootElement = document.getElementById('root');
   if (!rootElement) {

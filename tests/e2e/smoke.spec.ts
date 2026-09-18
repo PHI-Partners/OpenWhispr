@@ -24,6 +24,7 @@ test.describe('smoke', () => {
     expect(apiShape).toEqual([
       'getMeeting',
       'listMeetings',
+      'logRendererError',
       'onTranscriptUpdate',
       'startMeetingRecording',
       'stopMeetingRecording',

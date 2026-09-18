@@ -4,6 +4,7 @@ export const InvokeChannel = {
   MeetingRecordingStop: 'meeting-recording-stop',
   DbListMeetings: 'db-list-meetings',
   DbGetMeeting: 'db-get-meeting',
+  LogRendererError: 'log-renderer-error',
 } as const;
 export type InvokeChannel = (typeof InvokeChannel)[keyof typeof InvokeChannel];
 
@@ -40,12 +41,19 @@ export interface MeetingSummary extends Pick<Meeting, 'id' | 'title' | 'createdA
   transcriptPreview: string;
 }
 
+export interface RendererErrorPayload {
+  message: string;
+  stack: string | null;
+  source: 'error' | 'unhandledrejection';
+}
+
 /** Handler signature per invoke channel; a channel without an entry breaks `InvokeMethod`. */
 export interface InvokeContract {
   [InvokeChannel.MeetingRecordingStart]: () => StartMeetingRecordingResult;
   [InvokeChannel.MeetingRecordingStop]: () => void;
   [InvokeChannel.DbListMeetings]: () => MeetingSummary[];
   [InvokeChannel.DbGetMeeting]: (id: number) => Meeting;
+  [InvokeChannel.LogRendererError]: (payload: RendererErrorPayload) => void;
 }
 
 /** Payload per event channel; a channel without an entry breaks `SubscribeMethod`. */
@@ -69,4 +77,5 @@ export interface Api {
   onTranscriptUpdate: SubscribeMethod<typeof EventChannel.TranscriptUpdate>;
   listMeetings: InvokeMethod<typeof InvokeChannel.DbListMeetings>;
   getMeeting: InvokeMethod<typeof InvokeChannel.DbGetMeeting>;
+  logRendererError: InvokeMethod<typeof InvokeChannel.LogRendererError>;
 }
