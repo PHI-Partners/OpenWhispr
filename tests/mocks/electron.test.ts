@@ -30,6 +30,16 @@ describe('Electron mock', () => {
     it('reports not packaged by default', () => {
       expect(app.isPackaged).toBe(false);
     });
+
+    it('returns mock app path from getAppPath', () => {
+      expect(typeof app.getAppPath()).toBe('string');
+    });
+
+    it('resetElectronMock restores isPackaged to false', () => {
+      app.isPackaged = true;
+      resetElectronMock();
+      expect(app.isPackaged).toBe(false);
+    });
   });
 
   describe('ipcMain + simulateInvoke', () => {

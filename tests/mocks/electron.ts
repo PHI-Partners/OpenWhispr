@@ -19,6 +19,7 @@ export const app = {
   quit: vi.fn(),
   getName: vi.fn(() => 'OpenWhispr'),
   getVersion: vi.fn(() => '0.1.0'),
+  getAppPath: vi.fn(() => '/mock/app'),
 };
 
 // ── ipcMain ──
@@ -163,4 +164,7 @@ export function resetElectronMock(): void {
   handlers.clear();
   registeredShortcuts.clear();
   ipcRendererListeners.clear();
+  app.isPackaged = false;
+  app.getPath.mockImplementation((name: string) => `/mock/${name}`);
+  app.getAppPath.mockReturnValue('/mock/app');
 }
