@@ -2,12 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import type { Logger, LogLevelName } from './logger';
 
-export function pipeStreamToLogger(
-  stream: Readable,
-  logger: Logger,
-  tag: string,
-  level: LogLevelName,
-): void {
+export function pipeStreamToLogger(stream: Readable, logger: Logger, tag: string, level: LogLevelName): void {
   let buffer = '';
   const log = logger[level].bind(logger);
 

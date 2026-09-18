@@ -35,13 +35,33 @@ export const ipcMain = {
   }),
 };
 
+function deriveOrigin(url: string): string {
+  if (url.startsWith('file:')) return 'file://';
+  try {
+    return new URL(url).origin;
+  } catch {
+    return 'null';
+  }
+}
+
 export function simulateInvoke(channel: string, ...args: unknown[]): Promise<unknown> {
+  return simulateInvokeFrom('file:///app/index.html', channel, ...args);
+}
+
+export function simulateInvokeFrom(senderUrl: string, channel: string, ...args: unknown[]): Promise<unknown> {
   const handler = handlers.get(channel);
   if (!handler) return Promise.reject(new Error(`No handler registered for channel: ${channel}`));
   const event = {
-    senderFrame: { url: 'file:///app/index.html' },
+    senderFrame: { url: senderUrl, origin: deriveOrigin(senderUrl) },
     sender: { id: 1 },
   };
+  return Promise.resolve(handler(event, ...args));
+}
+
+export function simulateInvokeWithNullFrame(channel: string, ...args: unknown[]): Promise<unknown> {
+  const handler = handlers.get(channel);
+  if (!handler) return Promise.reject(new Error(`No handler registered for channel: ${channel}`));
+  const event = { senderFrame: null, sender: { id: 1 } };
   return Promise.resolve(handler(event, ...args));
 }
 
@@ -53,6 +73,9 @@ export class BrowserWindow {
       sentMessages.push({ channel: sendArgs[0], args: sendArgs.slice(1) });
     }),
     id: 1,
+    getURL: vi.fn(() => 'file:///app/index.html'),
+    on: vi.fn(),
+    setWindowOpenHandler: vi.fn(),
   };
 
   constructor(_opts?: Record<string, unknown>) {}
@@ -112,13 +135,68 @@ export const globalShortcut = {
 
 // ── session ──
 
+type PermissionRequestHandler = (
+  webContents: unknown,
+  permission: string,
+  callback: (granted: boolean) => void,
+  details: { requestingUrl?: string },
+) => void;
+
+type PermissionCheckHandler = (
+  webContents: unknown,
+  permission: string,
+  requestingOrigin: string,
+  details: unknown,
+) => boolean;
+
+type HeadersReceivedHandler = (
+  details: { url: string; responseHeaders?: Record<string, string[]> },
+  callback: (response: { responseHeaders?: Record<string, string | string[]>; cancel?: boolean }) => void,
+) => void;
+
+let permissionRequestHandler: PermissionRequestHandler | null = null;
+let permissionCheckHandler: PermissionCheckHandler | null = null;
+let headersReceivedHandler: HeadersReceivedHandler | null = null;
+
 export const session = {
   defaultSession: {
-    setPermissionRequestHandler: vi.fn((_handler: unknown) => {}),
-    setPermissionCheckHandler: vi.fn((_handler: unknown) => {}),
+    setPermissionRequestHandler: vi.fn((handler: PermissionRequestHandler | null) => {
+      permissionRequestHandler = handler;
+    }),
+    setPermissionCheckHandler: vi.fn((handler: PermissionCheckHandler | null) => {
+      permissionCheckHandler = handler;
+    }),
     setDisplayMediaRequestHandler: vi.fn((_handler: unknown) => {}),
+    webRequest: {
+      onHeadersReceived: vi.fn((handler: HeadersReceivedHandler | null) => {
+        headersReceivedHandler = handler;
+      }),
+    },
   },
 };
+
+export function simulatePermissionRequest(permission: string, requestingUrl: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!permissionRequestHandler) throw new Error('No permission request handler registered');
+    const fakeWebContents = { getURL: () => requestingUrl };
+    permissionRequestHandler(fakeWebContents, permission, resolve, { requestingUrl });
+  });
+}
+
+export function simulatePermissionCheck(permission: string, requestingOrigin: string): boolean {
+  if (!permissionCheckHandler) throw new Error('No permission check handler registered');
+  return permissionCheckHandler(null, permission, requestingOrigin, {});
+}
+
+export function simulateHeadersReceived(details: {
+  url: string;
+  responseHeaders?: Record<string, string[]>;
+}): Promise<{ responseHeaders?: Record<string, string | string[]>; cancel?: boolean }> {
+  return new Promise((resolve) => {
+    if (!headersReceivedHandler) throw new Error('No onHeadersReceived handler registered');
+    headersReceivedHandler(details, resolve);
+  });
+}
 
 // ── desktopCapturer ──
 
@@ -164,6 +242,9 @@ export function resetElectronMock(): void {
   handlers.clear();
   registeredShortcuts.clear();
   ipcRendererListeners.clear();
+  permissionRequestHandler = null;
+  permissionCheckHandler = null;
+  headersReceivedHandler = null;
   app.isPackaged = false;
   app.getPath.mockImplementation((name: string) => `/mock/${name}`);
   app.getAppPath.mockReturnValue('/mock/app');

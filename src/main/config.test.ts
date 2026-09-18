@@ -214,10 +214,7 @@ describe('resolvePaths', () => {
   describe('packaged mode', () => {
     beforeEach(() => {
       (app as unknown as { isPackaged: boolean }).isPackaged = true;
-      (process as unknown as Record<string, unknown>).resourcesPath = join(
-        tempDir,
-        'app-resources',
-      );
+      (process as unknown as Record<string, unknown>).resourcesPath = join(tempDir, 'app-resources');
     });
 
     it('resolves binDir from process.resourcesPath', () => {

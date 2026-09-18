@@ -69,10 +69,7 @@ export class SettingsStore {
   private quarantineCorrupt(): void {
     const corruptPath = this.filePath + '.corrupt';
     renameSync(this.filePath, corruptPath);
-    this.logger.warn(
-      'settings',
-      `Corrupt settings file quarantined to ${corruptPath}; using defaults`,
-    );
+    this.logger.warn('settings', `Corrupt settings file quarantined to ${corruptPath}; using defaults`);
   }
 
   private validateAndMerge(raw: Record<string, unknown>): Record<string, unknown> {
@@ -95,9 +92,7 @@ export class SettingsStore {
     if ('selectedModel' in patch) {
       const val = patch.selectedModel;
       if (typeof val !== 'string' && val !== null) {
-        throw new TypeError(
-          `settings: selectedModel must be a string or null, got ${typeof val}`,
-        );
+        throw new TypeError(`settings: selectedModel must be a string or null, got ${typeof val}`);
       }
     }
   }

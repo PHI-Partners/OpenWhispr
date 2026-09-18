@@ -143,9 +143,7 @@ export function resolvePaths(): AppPaths {
   const overrides = readOverrides();
   const userData = overrides.userDataDir ?? app.getPath('userData');
 
-  const resourceBase = app.isPackaged
-    ? process.resourcesPath
-    : join(app.getAppPath(), 'resources');
+  const resourceBase = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources');
 
   return {
     userData,

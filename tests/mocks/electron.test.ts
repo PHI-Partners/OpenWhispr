@@ -9,7 +9,12 @@ import {
   resetElectronMock,
   sentMessages,
   session,
+  simulateHeadersReceived,
   simulateInvoke,
+  simulateInvokeFrom,
+  simulateInvokeWithNullFrame,
+  simulatePermissionCheck,
+  simulatePermissionRequest,
   Tray,
 } from './electron';
 
@@ -135,10 +140,112 @@ describe('Electron mock', () => {
     });
   });
 
+  describe('simulateInvokeFrom', () => {
+    it('passes custom sender URL to handler', async () => {
+      ipcMain.handle('test', (...args: unknown[]) => {
+        const event = args[0] as { senderFrame: { url: string } };
+        return event.senderFrame.url;
+      });
+      const result = await simulateInvokeFrom('http://evil.com/page', 'test');
+      expect(result).toBe('http://evil.com/page');
+    });
+
+    it('derives file:// origin for file: URLs', async () => {
+      ipcMain.handle('test', (...args: unknown[]) => {
+        const event = args[0] as { senderFrame: { origin: string } };
+        return event.senderFrame.origin;
+      });
+      const result = await simulateInvokeFrom('file:///C:/app/index.html', 'test');
+      expect(result).toBe('file://');
+    });
+
+    it('derives http origin for http URLs', async () => {
+      ipcMain.handle('test', (...args: unknown[]) => {
+        const event = args[0] as { senderFrame: { origin: string } };
+        return event.senderFrame.origin;
+      });
+      const result = await simulateInvokeFrom('http://localhost:5173/index.html', 'test');
+      expect(result).toBe('http://localhost:5173');
+    });
+
+    it('rejects for unregistered channel', async () => {
+      await expect(simulateInvokeFrom('file:///app', 'nope')).rejects.toThrow('No handler');
+    });
+  });
+
+  describe('simulateInvokeWithNullFrame', () => {
+    it('passes null senderFrame to handler', async () => {
+      ipcMain.handle('test', (...args: unknown[]) => {
+        const event = args[0] as { senderFrame: unknown };
+        return event.senderFrame;
+      });
+      const result = await simulateInvokeWithNullFrame('test');
+      expect(result).toBeNull();
+    });
+  });
+
   describe('session', () => {
     it('provides permission handlers on defaultSession', () => {
       session.defaultSession.setPermissionRequestHandler(() => {});
       expect(session.defaultSession.setPermissionRequestHandler).toHaveBeenCalled();
+    });
+
+    it('provides webRequest.onHeadersReceived', () => {
+      session.defaultSession.webRequest.onHeadersReceived(() => {});
+      expect(session.defaultSession.webRequest.onHeadersReceived).toHaveBeenCalled();
+    });
+  });
+
+  describe('simulatePermissionRequest', () => {
+    it('invokes stored permission request handler', async () => {
+      session.defaultSession.setPermissionRequestHandler(
+        (_wc: unknown, permission: string, callback: (granted: boolean) => void) => {
+          callback(permission === 'media');
+        },
+      );
+      expect(await simulatePermissionRequest('media', 'file:///app')).toBe(true);
+      expect(await simulatePermissionRequest('geolocation', 'file:///app')).toBe(false);
+    });
+
+    it('throws when no handler is registered', async () => {
+      await expect(simulatePermissionRequest('media', 'file:///app')).rejects.toThrow(
+        'No permission request handler',
+      );
+    });
+  });
+
+  describe('simulatePermissionCheck', () => {
+    it('invokes stored permission check handler', () => {
+      session.defaultSession.setPermissionCheckHandler(
+        (_wc: unknown, permission: string) => permission === 'media',
+      );
+      expect(simulatePermissionCheck('media', 'file://')).toBe(true);
+      expect(simulatePermissionCheck('geolocation', 'file://')).toBe(false);
+    });
+
+    it('throws when no handler is registered', () => {
+      expect(() => simulatePermissionCheck('media', 'file://')).toThrow('No permission check handler');
+    });
+  });
+
+  describe('simulateHeadersReceived', () => {
+    it('invokes stored onHeadersReceived handler', async () => {
+      session.defaultSession.webRequest.onHeadersReceived(
+        (
+          details: { url: string },
+          callback: (resp: { responseHeaders?: Record<string, string[]> }) => void,
+        ) => {
+          callback({ responseHeaders: { 'X-Test': [details.url] } });
+        },
+      );
+      const result = await simulateHeadersReceived({ url: 'file:///app/index.html' });
+      expect(result.responseHeaders).toEqual({ 'X-Test': ['file:///app/index.html'] });
+    });
+
+    it('throws when no handler is registered', async () => {
+      await expect(simulateHeadersReceived({ url: 'file:///x' })).rejects.toThrow(
+        'No onHeadersReceived handler',
+      );
     });
   });
 

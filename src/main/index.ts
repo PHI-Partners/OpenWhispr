@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import { Logger } from './logger';
 import { registerIpcHandlers } from './ipc/ipcHandlers';
+import { configureContentSecurityPolicy, configurePermissions, hardenWindow } from './security';
 
 // ── Early logger (before app.whenReady) ──
 
@@ -13,14 +14,13 @@ process.on('uncaughtException', (err: Error) => {
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-  const message =
-    reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+  const message = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
   logger.error('process', `Unhandled rejection: ${message}`);
 });
 
 // ── App lifecycle ──
 
-async function createMainWindow(): Promise<void> {
+async function createMainWindow(): Promise<BrowserWindow> {
   const mainWindow = new BrowserWindow({
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -38,18 +38,22 @@ async function createMainWindow(): Promise<void> {
   } else {
     await mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  return mainWindow;
 }
 
 app
   .whenReady()
   .then(async () => {
+    configureContentSecurityPolicy(logger);
+    configurePermissions(logger);
     registerIpcHandlers({ logger });
-    await createMainWindow();
+    const mainWindow = await createMainWindow();
+    hardenWindow(mainWindow, logger);
     logger.info('app', 'OpenWhispr started');
   })
   .catch((error: unknown) => {
-    const message =
-      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
     logger.error('app', `Failed to start: ${message}`);
   });
 

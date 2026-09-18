@@ -35,4 +35,29 @@ test.describe('smoke', () => {
     await mainWindow.waitForTimeout(1_000);
     expect(consoleErrors).toEqual([]);
   });
+
+  test('getUserMedia resolves for audio', async ({ mainWindow }) => {
+    const result = await mainWindow.evaluate(`
+      (async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop());
+          return true;
+        } catch { return false; }
+      })()
+    `);
+    expect(result).toBe(true);
+  });
+
+  test('renderer-initiated navigation to external URL is blocked', async ({ mainWindow }) => {
+    const urlBefore = mainWindow.url();
+    await mainWindow.evaluate(`location.href = 'https://example.com'`);
+    await mainWindow.waitForTimeout(500);
+    expect(mainWindow.url()).toBe(urlBefore);
+  });
+
+  test('window.open returns null', async ({ mainWindow }) => {
+    const opened = await mainWindow.evaluate(`window.open('https://example.com') !== null`);
+    expect(opened).toBe(false);
+  });
 });
